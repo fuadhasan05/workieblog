@@ -1,0 +1,397 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Workie Design System - The Career Companion for African Gen-Z */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Workie Brand Palette */
+    --background: 0 0% 100%;
+    --foreground: 215 23% 23%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 23% 23%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 23% 23%;
+
+    /* Workie Orange - Primary (#FF6B35) */
+    --primary: 16 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Cool Gray - Secondary (#F5F5F5) */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 215 23% 23%;
+
+    --muted: 0 0% 96%;
+    --muted-foreground: 215 23% 45%;
+
+    /* Sunset Yellow - Accent (#FFB627) */
+    --accent: 43 100% 58%;
+    --accent-foreground: 215 23% 23%;
+
+    /* Deep Navy - Authority (#004E89) */
+    --navy: 207 100% 27%;
+    --navy-foreground: 0 0% 100%;
+
+    /* Fresh Mint - Growth (#1FA877) */
+    --mint: 155 69% 39%;
+    --mint-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 13% 88%;
+    --input: 215 13% 88%;
+    --ring: 16 100% 60%;
+
+    --radius: 0.75rem;
+
+    /* Category Colors - Workie themed */
+    --category-career: 16 100% 60%;
+    --category-success: 155 69% 39%;
+    --category-wellness: 207 100% 27%;
+    --category-trends: 280 65% 55%;
+    --category-money: 43 100% 58%;
+
+    /* Hero gradient colors - sunrise energy */
+    --hero-orange: 16 100% 97%;
+    --hero-yellow: 43 100% 95%;
+    --hero-mint: 155 50% 95%;
+    --hero-navy: 207 40% 95%;
+
+    /* Fonts */
+    --font-display: 'Poppins', sans-serif;
+    --font-body: 'Inter', sans-serif;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 215 23% 23%;
+    --sidebar-primary: 16 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 96%;
+    --sidebar-accent-foreground: 215 23% 23%;
+    --sidebar-border: 215 13% 90%;
+    --sidebar-ring: 16 100% 60%;
+  }
+
+  .dark {
+    --background: 207 30% 8%;
+    --foreground: 0 0% 98%;
+
+    --card: 207 25% 12%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 207 25% 12%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Workie Orange stays vibrant in dark mode */
+    --primary: 16 100% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 207 25% 16%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 207 25% 16%;
+    --muted-foreground: 207 15% 65%;
+
+    /* Sunset Yellow - Accent */
+    --accent: 43 100% 58%;
+    --accent-foreground: 207 30% 10%;
+
+    /* Deep Navy in dark mode */
+    --navy: 207 80% 45%;
+    --navy-foreground: 0 0% 100%;
+
+    /* Fresh Mint in dark mode */
+    --mint: 155 60% 50%;
+    --mint-foreground: 0 0% 100%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 207 25% 20%;
+    --input: 207 25% 20%;
+    --ring: 16 100% 60%;
+
+    /* Hero gradient colors - dark navy tones */
+    --hero-orange: 16 40% 15%;
+    --hero-yellow: 43 30% 12%;
+    --hero-mint: 155 25% 12%;
+    --hero-navy: 207 30% 10%;
+
+    --sidebar-background: 207 25% 10%;
+    --sidebar-foreground: 0 0% 96%;
+    --sidebar-primary: 16 100% 60%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 207 25% 16%;
+    --sidebar-accent-foreground: 0 0% 96%;
+    --sidebar-border: 207 25% 18%;
+    --sidebar-ring: 16 100% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-body;
+    font-family: var(--font-body);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer components {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  .font-body {
+    font-family: var(--font-body);
+  }
+
+  .category-badge {
+    @apply inline-block px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full;
+  }
+
+  .category-career {
+    background-color: hsl(var(--category-career));
+    @apply text-white;
+  }
+
+  .category-success {
+    background-color: hsl(var(--category-success));
+    @apply text-white;
+  }
+
+  .category-wellness {
+    background-color: hsl(var(--category-wellness));
+    @apply text-white;
+  }
+
+  .category-trends {
+    background-color: hsl(var(--category-trends));
+    @apply text-white;
+  }
+
+  .category-money {
+    background-color: hsl(var(--category-money));
+    @apply text-white;
+  }
+
+  .hover-lift {
+    @apply transition-transform duration-300 hover:-translate-y-1;
+  }
+
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-accent;
+  }
+
+  /* Workie Sunrise Gradient - Orange to Yellow */
+  .bg-gradient-sunrise {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(var(--accent)) 100%
+    );
+  }
+
+  /* Newsletter Email Input Enhancement */
+  .newsletter-input {
+    @apply px-4 py-3 bg-white text-gray-900 rounded-xl border-2 border-transparent 
+           focus:outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary/50 
+           shadow-lg placeholder-gray-500 text-base font-medium transition-all duration-300
+           hover:shadow-xl disabled:opacity-70 disabled:cursor-not-allowed;
+  }
+
+  /* Newsletter Button Enhancement */
+  .newsletter-button {
+    @apply font-display uppercase tracking-wider bg-navy text-white 
+           hover:bg-navy/90 shadow-lg hover:shadow-xl transition-all duration-300 
+           px-6 py-3 text-base font-bold rounded-xl min-w-[140px] 
+           disabled:opacity-70 disabled:cursor-not-allowed;
+  }
+
+  /* Newsletter Loading Spinner */
+  .newsletter-spinner {
+    @apply w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin;
+  }
+
+  /* Workie Hero Gradient - Soft sunrise energy */
+  .bg-gradient-workie {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--hero-orange)) 0%,
+      hsl(var(--hero-yellow)) 50%,
+      hsl(var(--hero-mint)) 100%
+    );
+  }
+
+  /* Hero color utilities */
+  .bg-hero-orange {
+    background-color: hsl(var(--hero-orange));
+  }
+  .bg-hero-yellow {
+    background-color: hsl(var(--hero-yellow));
+  }
+  .bg-hero-mint {
+    background-color: hsl(var(--hero-mint));
+  }
+  .bg-hero-navy {
+    background-color: hsl(var(--hero-navy));
+  }
+
+  /* Brand color utilities */
+  .bg-navy {
+    background-color: hsl(var(--navy));
+  }
+  .text-navy {
+    color: hsl(var(--navy));
+  }
+  .bg-mint {
+    background-color: hsl(var(--mint));
+  }
+  .text-mint {
+    color: hsl(var(--mint));
+  }
+
+  /* Gradient Backgrounds */
+  .bg-gradient-hero {
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.08) 0%, hsl(var(--accent) / 0.08) 100%);
+  }
+
+  .bg-gradient-subtle {
+    background: linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--secondary)) 100%);
+  }
+
+  .bg-gradient-card {
+    background: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--secondary) / 0.5) 100%);
+  }
+
+  .bg-gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+  }
+
+  .bg-gradient-mint {
+    background: linear-gradient(135deg, hsl(var(--mint)) 0%, hsl(155 69% 50%) 100%);
+  }
+
+  .bg-gradient-navy {
+    background: linear-gradient(135deg, hsl(var(--navy)) 0%, hsl(207 80% 20%) 100%);
+  }
+
+  .bg-gradient-glow {
+    background: radial-gradient(ellipse at top, hsl(var(--primary) / 0.12) 0%, transparent 50%);
+  }
+
+  /* Hover Effects */
+  .hover-glow {
+    @apply transition-all duration-300;
+  }
+  .hover-glow:hover {
+    box-shadow: 0 10px 40px -10px hsl(var(--primary) / 0.4);
+    transform: translateY(-2px);
+  }
+
+  .hover-scale {
+    @apply transition-transform duration-300 ease-out;
+  }
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  .hover-shine {
+    @apply relative overflow-hidden;
+  }
+  .hover-shine::before {
+    content: '';
+    @apply absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-500;
+  }
+  .hover-shine:hover::before {
+    @apply translate-x-full;
+  }
+
+  .hover-border-glow {
+    @apply transition-all duration-300;
+  }
+  .hover-border-glow:hover {
+    box-shadow: 0 0 0 2px hsl(var(--primary) / 0.3), 0 8px 25px -5px hsl(var(--primary) / 0.2);
+  }
+
+  /* Responsive Typography */
+  .text-responsive-sm {
+    font-size: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  }
+
+  .text-responsive-base {
+    font-size: clamp(0.875rem, 0.8rem + 0.375vw, 1rem);
+  }
+
+  .text-responsive-lg {
+    font-size: clamp(1rem, 0.9rem + 0.5vw, 1.125rem);
+  }
+
+  .text-responsive-xl {
+    font-size: clamp(1.125rem, 1rem + 0.625vw, 1.25rem);
+  }
+
+  .text-responsive-2xl {
+    font-size: clamp(1.25rem, 1rem + 1.25vw, 1.5rem);
+  }
+
+  .text-responsive-3xl {
+    font-size: clamp(1.5rem, 1.25rem + 1.25vw, 1.875rem);
+  }
+
+  .text-responsive-hero {
+    font-size: clamp(1.875rem, 1.5rem + 1.875vw, 3rem);
+  }
+}
+
+/* Theme transition for smooth dark mode toggle */
+.theme-transition {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Skeleton shimmer effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted-foreground) / 0.1) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

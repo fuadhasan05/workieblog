@@ -1,0 +1,347 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  AUTHOR
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  VIP
+}
+
+enum MembershipStatus {
+  ACTIVE
+  CANCELED
+  PAST_DUE
+  TRIALING
+}
+
+enum ContentAccessLevel {
+  FREE
+  SUBSCRIBER
+  PREMIUM
+}
+
+enum PaymentGateway {
+  STRIPE
+  PAYSTACK
+  PAYPAL
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String
+  password      String
+  role          Role     @default(AUTHOR)
+  avatar        String?
+  bio           String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  posts         Post[]
+  mediaItems    Media[]
+
+  @@map("users")
+}
+
+model Post {
+  id              String             @id @default(cuid())
+  slug            String             @unique
+  title           String
+  excerpt         String?
+  content         String             @db.Text
+  featuredImage   String?
+  status          PostStatus         @default(DRAFT)
+  publishedAt     DateTime?
+  scheduledFor    DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  readTime        Int?
+  isFeatured      Boolean            @default(false)
+  isPremium       Boolean            @default(false)
+  accessLevel     ContentAccessLevel @default(FREE)
+  views           Int                @default(0)
+
+  authorId        String
+  author          User               @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  categoryId      String
+  category        Category           @relation(fields: [categoryId], references: [id])
+
+  tags            Tag[]
+  savedBy         SavedArticle[]
+
+  @@index([slug])
+  @@index([status])
+  @@index([publishedAt])
+  @@index([authorId])
+  @@index([categoryId])
+  @@index([accessLevel])
+  @@map("posts")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  color       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  posts       Post[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+
+  posts     Post[]
+
+  @@map("tags")
+}
+
+model Media {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  url         String
+  thumbnail   String?
+  width       Int?
+  height      Int?
+  uploadedBy  String
+  user        User     @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([uploadedBy])
+  @@map("media")
+}
+
+model Subscriber {
+  id              String            @id @default(cuid())
+  email           String            @unique
+  name            String?
+  tier            SubscriptionTier  @default(FREE)
+  subscribedAt    DateTime          @default(now())
+  lastActiveAt    DateTime?
+  isActive        Boolean           @default(true)
+
+  @@index([tier])
+  @@index([isActive])
+  @@map("subscribers")
+}
+
+model Analytics {
+  id          String   @id @default(cuid())
+  postId      String?
+  event       String   // 'page_view', 'post_view', 'video_view', etc.
+  path        String?
+  referrer    String?
+  userAgent   String?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+
+  @@index([postId])
+  @@index([event])
+  @@index([createdAt])
+  @@map("analytics")
+}
+
+model Video {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?
+  thumbnail   String
+  videoUrl    String
+  duration    String?
+  views       Int      @default(0)
+  publishedAt DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  categoryId  String
+
+  @@index([slug])
+  @@map("videos")
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  FREELANCE
+  INTERNSHIP
+}
+
+enum JobStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+}
+
+model Job {
+  id             String    @id @default(cuid())
+  title          String
+  company        String
+  location       String
+  salary         String?
+  jobType        JobType   @default(FULL_TIME)
+  remote         Boolean   @default(false)
+  description    String    @db.Text
+  requirements   String?   @db.Text
+  applicationUrl String
+  tags           String[]
+  status         JobStatus @default(ACTIVE)
+  expiresAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([jobType])
+  @@index([remote])
+  @@map("jobs")
+}
+
+model Member {
+  id                    String             @id @default(cuid())
+  email                 String             @unique
+  name                  String
+  password              String
+  avatar                String?
+  emailVerified         Boolean            @default(false)
+  membershipTier        SubscriptionTier   @default(FREE)
+  membershipStatus      MembershipStatus?
+  paymentGateway        PaymentGateway?
+
+  // Stripe
+  stripeCustomerId      String?            @unique
+  stripeSubscriptionId  String?            @unique
+
+  // Paystack
+  paystackCustomerId    String?            @unique
+  paystackSubscriptionCode String?         @unique
+
+  // PayPal
+  paypalSubscriptionId  String?            @unique
+  paypalCustomerId      String?
+
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  savedArticles         SavedArticle[]
+  payments              Payment[]
+
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@index([paystackCustomerId])
+  @@index([paypalSubscriptionId])
+  @@index([membershipTier])
+  @@index([paymentGateway])
+  @@map("members")
+}
+
+model SavedArticle {
+  id        String   @id @default(cuid())
+  memberId  String
+  member    Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  savedAt   DateTime @default(now())
+
+  @@unique([memberId, postId])
+  @@index([memberId])
+  @@index([postId])
+  @@map("saved_articles")
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  memberId          String
+  member            Member          @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  gateway           PaymentGateway
+  gatewayPaymentId  String          @unique
+  amount            Int             // Amount in cents/kobo
+  currency          String          @default("usd")
+  status            String          // succeeded, failed, pending
+  description       String?
+  metadata          String?         @db.Text
+  createdAt         DateTime        @default(now())
+
+  @@index([memberId])
+  @@index([gatewayPaymentId])
+  @@index([gateway])
+  @@map("payments")
+}
+
+enum ResourceStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ResourceCategory {
+  CAREER_TOOLS
+  NETWORKING
+  PLANNING
+  TEMPLATES
+  GUIDES
+}
+
+enum ResourceIconType {
+  FILE_TEXT
+  BOOK_OPEN
+  TARGET
+  USERS
+  TRENDING_UP
+  BRIEFCASE
+  LIGHTBULB
+  STAR
+}
+
+model Resource {
+  id            String           @id @default(cuid())
+  title         String
+  description   String
+  category      ResourceCategory @default(CAREER_TOOLS)
+  iconType      ResourceIconType @default(FILE_TEXT)
+  fileUrl       String
+  fileName      String
+  fileSize      Int              // File size in bytes
+  mimeType      String
+  downloadCount Int              @default(0)
+  status        ResourceStatus   @default(DRAFT)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([status])
+  @@index([category])
+  @@map("resources")
+}
