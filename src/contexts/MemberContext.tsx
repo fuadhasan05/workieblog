@@ -21,6 +21,7 @@ interface MemberContextType {
   isAuthenticated: boolean;
   hasTier: (...tiers: string[]) => boolean;
   refreshMember: () => Promise<void>;
+  setMemberSession: (member: Member, token?: string | null) => void;
 }
 
 const MemberContext = createContext<MemberContextType | undefined>(undefined);
@@ -34,41 +35,79 @@ export const useMember = () => {
 };
 
 export const MemberProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [member, setMember] = useState<Member | null>(null);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('member_token'));
+  const MEMBER_TOKEN_KEY = 'member_token';
+  const MEMBER_PROFILE_KEY = 'member_profile';
+
+  const getStoredMember = (): Member | null => {
+    const stored = localStorage.getItem(MEMBER_PROFILE_KEY);
+    if (!stored) return null;
+    try {
+      return JSON.parse(stored) as Member;
+    } catch (error) {
+      console.error('Failed to parse stored member profile:', error);
+      localStorage.removeItem(MEMBER_PROFILE_KEY);
+      return null;
+    }
+  };
+
+  const [member, setMember] = useState<Member | null>(getStoredMember);
+  const [token, setToken] = useState<string | null>(localStorage.getItem(MEMBER_TOKEN_KEY));
   const [isLoading, setIsLoading] = useState(true);
 
   const refreshMember = async () => {
-    const storedToken = localStorage.getItem('member_token');
-    if (storedToken) {
-      try {
-        const response = await fetch('http://localhost:3001/api/members/me', {
-          headers: {
-            'Authorization': `Bearer ${storedToken}`
-          }
-        });
+    const storedToken = localStorage.getItem(MEMBER_TOKEN_KEY);
+    const storedProfile = localStorage.getItem(MEMBER_PROFILE_KEY);
 
-        if (response.ok) {
-          const data = await response.json();
-          setMember(data.member);
-          setToken(storedToken);
-        } else {
-          localStorage.removeItem('member_token');
-          setToken(null);
-          setMember(null);
-        }
+    // If we have a stored profile, use it immediately (for Firebase auth)
+    if (storedProfile) {
+      try {
+        const parsed = JSON.parse(storedProfile) as Member;
+        setMember(parsed);
+        console.log('[MemberContext] Restored member from localStorage:', parsed.email);
       } catch (error) {
-        console.error('Member check error:', error);
-        localStorage.removeItem('member_token');
-        setToken(null);
+        console.error('Failed to restore member profile:', error);
+        localStorage.removeItem(MEMBER_PROFILE_KEY);
         setMember(null);
       }
+    }
+
+    // If no token, we're done (Firebase-only auth)
+    if (!storedToken) {
+      setToken(null);
+      return;
+    }
+
+    // Try to verify with backend (optional - for token-based auth)
+    try {
+      const response = await fetch('http://localhost:3001/api/members/me', {
+        headers: {
+          'Authorization': `Bearer ${storedToken}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMember(data.member);
+        setToken(storedToken);
+        localStorage.setItem(MEMBER_PROFILE_KEY, JSON.stringify(data.member));
+      } else {
+        // Token invalid but keep localStorage profile if exists
+        localStorage.removeItem(MEMBER_TOKEN_KEY);
+        setToken(null);
+      }
+    } catch (error) {
+      console.warn('[MemberContext] Backend check failed (non-critical):', error);
+      // Keep existing member from localStorage, just clear invalid token
+      localStorage.removeItem(MEMBER_TOKEN_KEY);
+      setToken(null);
     }
   };
 
   useEffect(() => {
     const checkAuth = async () => {
+      console.log('[MemberContext] Starting auth check...');
       await refreshMember();
+      console.log('[MemberContext] Auth check complete, isAuthenticated:', !!member);
       setIsLoading(false);
     };
 
@@ -91,8 +130,9 @@ export const MemberProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const data = await response.json();
     setMember(data.member);
+    localStorage.setItem(MEMBER_PROFILE_KEY, JSON.stringify(data.member));
     setToken(data.token);
-    localStorage.setItem('member_token', data.token);
+    localStorage.setItem(MEMBER_TOKEN_KEY, data.token);
   };
 
   const login = async (email: string, password: string) => {
@@ -111,8 +151,9 @@ export const MemberProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const data = await response.json();
     setMember(data.member);
+    localStorage.setItem(MEMBER_PROFILE_KEY, JSON.stringify(data.member));
     setToken(data.token);
-    localStorage.setItem('member_token', data.token);
+    localStorage.setItem(MEMBER_TOKEN_KEY, data.token);
   };
 
   const logout = async () => {
@@ -128,13 +169,29 @@ export const MemberProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     setMember(null);
+    localStorage.removeItem(MEMBER_PROFILE_KEY);
     setToken(null);
-    localStorage.removeItem('member_token');
+    localStorage.removeItem(MEMBER_TOKEN_KEY);
   };
 
   const hasTier = (...tiers: string[]) => {
     if (!member) return false;
     return tiers.includes(member.membershipTier);
+  };
+
+  const setMemberSession = (nextMember: Member, sessionToken?: string | null) => {
+    setMember(nextMember);
+    localStorage.setItem(MEMBER_PROFILE_KEY, JSON.stringify(nextMember));
+
+    if (sessionToken !== undefined) {
+      if (sessionToken) {
+        setToken(sessionToken);
+        localStorage.setItem(MEMBER_TOKEN_KEY, sessionToken);
+      } else {
+        setToken(null);
+        localStorage.removeItem(MEMBER_TOKEN_KEY);
+      }
+    }
   };
 
   return (
@@ -148,7 +205,8 @@ export const MemberProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         logout,
         isAuthenticated: !!member,
         hasTier,
-        refreshMember
+        refreshMember,
+        setMemberSession
       }}
     >
       {children}
