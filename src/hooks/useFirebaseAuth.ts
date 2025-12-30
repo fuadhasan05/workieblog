@@ -24,25 +24,10 @@ export const useFirebaseAuth = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        try {
-          // Get the Firebase ID token
-          const token = await firebaseUser.getIdToken();
-          
-          // Verify token with backend and sync user data
-          const response = await axios.post('/api/firebase-mongo/verify-token', {
-            token
-          });
-          
-          if (response.data.success) {
-            setUser({
-              ...firebaseUser,
-              mongoUser: response.data.user
-            });
-          }
-        } catch (error) {
-          console.error('Error syncing user:', error);
-          setError('Failed to sync user data');
-        }
+        setUser({
+          ...firebaseUser,
+          mongoUser: null // No backend sync needed
+        });
       } else {
         setUser(null);
       }

@@ -9,11 +9,14 @@ export class FirebaseMongoDB_SyncService {
    */
   static async syncUserFromFirebaseToMongoDB(firebaseUser: any) {
     try {
+      console.log('Connecting to MongoDB for user sync...');
       await connectToMongoDB();
       
+      console.log('Searching for existing user with Firebase UID:', firebaseUser.uid);
       let user = await User.findOne({ firebaseUid: firebaseUser.uid });
       
       if (!user) {
+        console.log('Creating new user in MongoDB...');
         user = new User({
           firebaseUid: firebaseUser.uid,
           email: firebaseUser.email,
@@ -23,17 +26,19 @@ export class FirebaseMongoDB_SyncService {
           isActive: true,
         });
       } else {
+        console.log('Updating existing user in MongoDB...');
         // Update existing user
         user.email = firebaseUser.email;
         user.name = firebaseUser.displayName || user.name;
         user.avatar = firebaseUser.photoURL || user.avatar;
       }
       
-      await user.save();
-      return user;
+      const savedUser = await user.save();
+      console.log('User saved successfully:', savedUser.email);
+      return savedUser;
     } catch (error) {
       console.error('Error syncing user from Firebase to MongoDB:', error);
-      throw error;
+      throw new Error(`MongoDB sync failed: ${error.message}`);
     }
   }
 

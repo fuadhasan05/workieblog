@@ -17,15 +17,23 @@ export class FirebaseMongoController {
         return res.status(400).json({ error: 'Firebase token is required' });
       }
 
+      console.log('Verifying Firebase token...');
+
       // Verify the Firebase ID token
       const decodedToken = await adminAuth.verifyIdToken(token);
+      console.log('Token verified, getting user details...');
+      
       const firebaseUser = await adminAuth.getUser(decodedToken.uid);
+      console.log('Firebase user retrieved:', firebaseUser.email);
       
       // Sync user to MongoDB
+      console.log('Syncing user to MongoDB...');
       const mongoUser = await FirebaseMongoDB_SyncService.syncUserFromFirebaseToMongoDB(firebaseUser);
+      console.log('User synced to MongoDB:', mongoUser.email);
       
       res.json({
         success: true,
+        message: 'User verified and synced successfully',
         user: {
           id: mongoUser._id,
           firebaseUid: mongoUser.firebaseUid,
@@ -41,7 +49,19 @@ export class FirebaseMongoController {
       });
     } catch (error) {
       console.error('Error verifying Firebase token:', error);
-      res.status(401).json({ error: 'Invalid Firebase token' });
+      
+      // Provide more specific error messages
+      if (error.code === 'auth/id-token-expired') {
+        res.status(401).json({ error: 'Firebase token has expired. Please sign in again.' });
+      } else if (error.code === 'auth/id-token-revoked') {
+        res.status(401).json({ error: 'Firebase token has been revoked. Please sign in again.' });
+      } else if (error.code === 'auth/invalid-id-token') {
+        res.status(401).json({ error: 'Invalid Firebase token format.' });
+      } else if (error.message && error.message.includes('MongoDB')) {
+        res.status(500).json({ error: 'Database connection error. Please try again.' });
+      } else {
+        res.status(401).json({ error: 'Failed to verify Firebase token' });
+      }
     }
   }
 
