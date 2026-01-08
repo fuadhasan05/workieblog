@@ -146,10 +146,11 @@ export default function AdminResources() {
       if (categoryFilter) params.append('category', categoryFilter);
 
       const data = await apiClient.get(`/resources?${params}`);
-      setResources(data.resources);
+      setResources(data.resources || []);
     } catch (error) {
       console.error('Failed to load resources:', error);
       toast.error('Failed to load resources');
+      setResources([]);
     } finally {
       setIsLoading(false);
     }
@@ -161,6 +162,7 @@ export default function AdminResources() {
       setStats(data);
     } catch (error) {
       console.error('Failed to load stats:', error);
+      setStats(null);
     }
   };
 
@@ -424,7 +426,7 @@ export default function AdminResources() {
               <CardTitle className="text-sm font-medium text-gray-600">Total Resources</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.totalResources}</div>
+              <div className="text-2xl font-bold">{stats.totalResources || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -432,7 +434,7 @@ export default function AdminResources() {
               <CardTitle className="text-sm font-medium text-gray-600">Published</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-green-600">{stats.publishedResources}</div>
+              <div className="text-2xl font-bold text-green-600">{stats.publishedResources || 0}</div>
             </CardContent>
           </Card>
           <Card>
@@ -440,7 +442,7 @@ export default function AdminResources() {
               <CardTitle className="text-sm font-medium text-gray-600">Total Downloads</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-blue-600">{stats.totalDownloads.toLocaleString()}</div>
+              <div className="text-2xl font-bold text-blue-600">{(stats.totalDownloads || 0).toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
@@ -449,7 +451,7 @@ export default function AdminResources() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-yellow-600">
-                {stats.totalResources - stats.publishedResources}
+                {(stats.totalResources || 0) - (stats.publishedResources || 0)}
               </div>
             </CardContent>
           </Card>
@@ -467,22 +469,22 @@ export default function AdminResources() {
             className="pl-10"
           />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select value={statusFilter || "all"} onValueChange={(val) => setStatusFilter(val === "all" ? "" : val)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="DRAFT">Draft</SelectItem>
             <SelectItem value="PUBLISHED">Published</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+        <Select value={categoryFilter || "all"} onValueChange={(val) => setCategoryFilter(val === "all" ? "" : val)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="All Categories" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Categories</SelectItem>
+            <SelectItem value="all">All Categories</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.value} value={cat.value}>
                 {cat.label}
@@ -553,7 +555,7 @@ export default function AdminResources() {
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Download className="w-4 h-4 text-gray-400" />
-                        {resource.downloadCount.toLocaleString()}
+                        {(resource.downloadCount || 0).toLocaleString()}
                       </div>
                     </TableCell>
                     <TableCell>

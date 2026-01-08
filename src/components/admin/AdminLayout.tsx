@@ -7,6 +7,7 @@ import {
   Image,
   Users,
   UserCog,
+  UserCircle,
   BarChart,
   LogOut,
   Menu,
@@ -27,6 +28,7 @@ const navigation = [
   { name: 'Tags', href: '/admin/tags', icon: Tag },
   { name: 'Media', href: '/admin/media', icon: Image },
   { name: 'Team', href: '/admin/team', icon: UserCog },
+  { name: 'Members', href: '/admin/members', icon: UserCircle },
   { name: 'Subscribers', href: '/admin/subscribers', icon: Users },
   { name: 'Analytics', href: '/admin/analytics', icon: BarChart },
 ];

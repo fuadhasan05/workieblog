@@ -1,13 +1,28 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Types } from 'mongoose';
 
-// User Model for MongoDB
+// ============== ENUMS ==============
+export const RoleEnum = ['ADMIN', 'EDITOR', 'AUTHOR'] as const;
+export const PostStatusEnum = ['DRAFT', 'SCHEDULED', 'PUBLISHED'] as const;
+export const SubscriptionTierEnum = ['FREE', 'PREMIUM', 'VIP'] as const;
+export const MembershipStatusEnum = ['ACTIVE', 'CANCELED', 'PAST_DUE', 'TRIALING'] as const;
+export const ContentAccessLevelEnum = ['FREE', 'SUBSCRIBER', 'PREMIUM'] as const;
+export const PaymentGatewayEnum = ['STRIPE', 'PAYSTACK', 'PAYPAL'] as const;
+export const JobTypeEnum = ['FULL_TIME', 'PART_TIME', 'CONTRACT', 'FREELANCE', 'INTERNSHIP'] as const;
+export const JobStatusEnum = ['ACTIVE', 'INACTIVE', 'EXPIRED'] as const;
+export const ResourceStatusEnum = ['DRAFT', 'PUBLISHED'] as const;
+export const ResourceCategoryEnum = ['CAREER_TOOLS', 'NETWORKING', 'PLANNING', 'TEMPLATES', 'GUIDES'] as const;
+export const ResourceIconTypeEnum = ['FILE_TEXT', 'BOOK_OPEN', 'TARGET', 'USERS', 'TRENDING_UP', 'BRIEFCASE', 'LIGHTBULB', 'STAR'] as const;
+
+// ============== USER MODEL ==============
 export interface IUser extends Document {
+  _id: Types.ObjectId;
   firebaseUid?: string;
   email: string;
   name: string;
+  password: string;
   avatar?: string;
   bio?: string;
-  role: 'user' | 'admin' | 'author';
+  role: typeof RoleEnum[number];
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -17,7 +32,7 @@ const UserSchema: Schema = new Schema({
   firebaseUid: {
     type: String,
     unique: true,
-    sparse: true, // Allows null values while maintaining uniqueness
+    sparse: true,
   },
   email: {
     type: String,
@@ -30,6 +45,10 @@ const UserSchema: Schema = new Schema({
     required: true,
     trim: true,
   },
+  password: {
+    type: String,
+    required: true,
+  },
   avatar: {
     type: String,
     default: null,
@@ -40,161 +59,791 @@ const UserSchema: Schema = new Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'admin', 'author'],
-    default: 'user',
+    enum: RoleEnum,
+    default: 'AUTHOR',
   },
   isActive: {
     type: Boolean,
     default: true,
   },
 }, {
-  timestamps: true, // Automatically adds createdAt and updatedAt
+  timestamps: true,
 });
 
-// Indexes for better performance
 UserSchema.index({ email: 1 });
 UserSchema.index({ firebaseUid: 1 });
 UserSchema.index({ role: 1 });
 
 export const User = mongoose.model<IUser>('User', UserSchema);
 
-// Article Model for MongoDB
-export interface IArticle extends Document {
-  title: string;
+// ============== CATEGORY MODEL ==============
+export interface ICategory extends Document {
+  _id: Types.ObjectId;
   slug: string;
-  content: string;
-  excerpt: string;
-  author: mongoose.Types.ObjectId;
-  categories: mongoose.Types.ObjectId[];
-  tags: string[];
-  featuredImage?: string;
-  status: 'draft' | 'published' | 'archived';
-  publishedAt?: Date;
-  views: number;
-  likes: number;
-  isFirebaseSync?: boolean; // Flag to track if synced with Firebase
+  name: string;
+  description?: string;
+  color?: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-const ArticleSchema: Schema = new Schema({
-  title: {
-    type: String,
-    required: true,
-    trim: true,
-  },
+const CategorySchema: Schema = new Schema({
   slug: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
   },
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  description: {
+    type: String,
+    default: null,
+  },
+  color: {
+    type: String,
+    default: '#ec4899',
+  },
+}, {
+  timestamps: true,
+});
+
+CategorySchema.index({ slug: 1 });
+
+export const Category = mongoose.model<ICategory>('Category', CategorySchema);
+
+// ============== TAG MODEL ==============
+export interface ITag extends Document {
+  _id: Types.ObjectId;
+  slug: string;
+  name: string;
+  createdAt: Date;
+}
+
+const TagSchema: Schema = new Schema({
+  slug: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+}, {
+  timestamps: { createdAt: true, updatedAt: false },
+});
+
+TagSchema.index({ slug: 1 });
+
+export const Tag = mongoose.model<ITag>('Tag', TagSchema);
+
+// ============== POST MODEL ==============
+export interface IPost extends Document {
+  _id: Types.ObjectId;
+  slug: string;
+  title: string;
+  excerpt?: string;
+  content: string;
+  featuredImage?: string;
+  status: typeof PostStatusEnum[number];
+  publishedAt?: Date;
+  scheduledFor?: Date;
+  readTime?: number;
+  isFeatured: boolean;
+  isPremium: boolean;
+  accessLevel: typeof ContentAccessLevelEnum[number];
+  views: number;
+  authorId: Types.ObjectId;
+  categoryId: Types.ObjectId;
+  tags: Types.ObjectId[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const PostSchema: Schema = new Schema({
+  slug: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+  },
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  excerpt: {
+    type: String,
+    default: null,
+  },
   content: {
     type: String,
     required: true,
   },
-  excerpt: {
-    type: String,
-    maxlength: 300,
-  },
-  author: {
-    type: Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-  },
-  categories: [{
-    type: Schema.Types.ObjectId,
-    ref: 'Category',
-  }],
-  tags: [{
-    type: String,
-    trim: true,
-  }],
   featuredImage: {
     type: String,
     default: null,
   },
   status: {
     type: String,
-    enum: ['draft', 'published', 'archived'],
-    default: 'draft',
+    enum: PostStatusEnum,
+    default: 'DRAFT',
   },
   publishedAt: {
     type: Date,
     default: null,
   },
+  scheduledFor: {
+    type: Date,
+    default: null,
+  },
+  readTime: {
+    type: Number,
+    default: null,
+  },
+  isFeatured: {
+    type: Boolean,
+    default: false,
+  },
+  isPremium: {
+    type: Boolean,
+    default: false,
+  },
+  accessLevel: {
+    type: String,
+    enum: ContentAccessLevelEnum,
+    default: 'FREE',
+  },
   views: {
     type: Number,
     default: 0,
   },
-  likes: {
-    type: Number,
-    default: 0,
+  authorId: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
   },
-  isFirebaseSync: {
-    type: Boolean,
-    default: false,
+  categoryId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Category',
+    required: true,
   },
+  tags: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Tag',
+  }],
 }, {
   timestamps: true,
 });
 
-// Indexes
-ArticleSchema.index({ slug: 1 });
-ArticleSchema.index({ author: 1 });
-ArticleSchema.index({ status: 1 });
-ArticleSchema.index({ publishedAt: -1 });
-ArticleSchema.index({ tags: 1 });
+PostSchema.index({ slug: 1 });
+PostSchema.index({ status: 1 });
+PostSchema.index({ publishedAt: -1 });
+PostSchema.index({ authorId: 1 });
+PostSchema.index({ categoryId: 1 });
+PostSchema.index({ accessLevel: 1 });
 
-export const Article = mongoose.model<IArticle>('Article', ArticleSchema);
+export const Post = mongoose.model<IPost>('Post', PostSchema);
 
-// Category Model for MongoDB
-export interface ICategory extends Document {
-  name: string;
-  slug: string;
-  description?: string;
-  color?: string;
-  icon?: string;
-  isActive: boolean;
+// ============== MEDIA MODEL ==============
+export interface IMedia extends Document {
+  _id: Types.ObjectId;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  thumbnail?: string;
+  width?: number;
+  height?: number;
+  uploadedBy: Types.ObjectId;
   createdAt: Date;
-  updatedAt: Date;
 }
 
-const CategorySchema: Schema = new Schema({
-  name: {
+const MediaSchema: Schema = new Schema({
+  filename: {
     type: String,
     required: true,
-    unique: true,
-    trim: true,
   },
-  slug: {
+  originalName: {
+    type: String,
+    required: true,
+  },
+  mimeType: {
+    type: String,
+    required: true,
+  },
+  size: {
+    type: Number,
+    required: true,
+  },
+  url: {
+    type: String,
+    required: true,
+  },
+  thumbnail: {
+    type: String,
+    default: null,
+  },
+  width: {
+    type: Number,
+    default: null,
+  },
+  height: {
+    type: Number,
+    default: null,
+  },
+  uploadedBy: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: true,
+  },
+}, {
+  timestamps: { createdAt: true, updatedAt: false },
+});
+
+MediaSchema.index({ uploadedBy: 1 });
+
+export const Media = mongoose.model<IMedia>('Media', MediaSchema);
+
+// ============== SUBSCRIBER MODEL ==============
+export interface ISubscriber extends Document {
+  _id: Types.ObjectId;
+  email: string;
+  name?: string;
+  tier: typeof SubscriptionTierEnum[number];
+  subscribedAt: Date;
+  lastActiveAt?: Date;
+  isActive: boolean;
+}
+
+const SubscriberSchema: Schema = new Schema({
+  email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
   },
-  description: {
+  name: {
     type: String,
-    maxlength: 200,
+    default: null,
   },
-  color: {
+  tier: {
     type: String,
-    default: '#6B7280', // Default gray color
+    enum: SubscriptionTierEnum,
+    default: 'FREE',
   },
-  icon: {
-    type: String,
+  subscribedAt: {
+    type: Date,
+    default: Date.now,
+  },
+  lastActiveAt: {
+    type: Date,
     default: null,
   },
   isActive: {
     type: Boolean,
     default: true,
   },
+});
+
+SubscriberSchema.index({ email: 1 });
+SubscriberSchema.index({ tier: 1 });
+SubscriberSchema.index({ isActive: 1 });
+
+export const Subscriber = mongoose.model<ISubscriber>('Subscriber', SubscriberSchema);
+
+// ============== ANALYTICS MODEL ==============
+export interface IAnalytics extends Document {
+  _id: Types.ObjectId;
+  postId?: Types.ObjectId;
+  event: string;
+  path?: string;
+  referrer?: string;
+  userAgent?: string;
+  ipAddress?: string;
+  createdAt: Date;
+}
+
+const AnalyticsSchema: Schema = new Schema({
+  postId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Post',
+    default: null,
+  },
+  event: {
+    type: String,
+    required: true,
+  },
+  path: {
+    type: String,
+    default: null,
+  },
+  referrer: {
+    type: String,
+    default: null,
+  },
+  userAgent: {
+    type: String,
+    default: null,
+  },
+  ipAddress: {
+    type: String,
+    default: null,
+  },
+}, {
+  timestamps: { createdAt: true, updatedAt: false },
+});
+
+AnalyticsSchema.index({ postId: 1 });
+AnalyticsSchema.index({ event: 1 });
+AnalyticsSchema.index({ createdAt: -1 });
+
+export const Analytics = mongoose.model<IAnalytics>('Analytics', AnalyticsSchema);
+
+// ============== VIDEO MODEL ==============
+export interface IVideo extends Document {
+  _id: Types.ObjectId;
+  slug: string;
+  title: string;
+  description?: string;
+  thumbnail: string;
+  videoUrl: string;
+  duration?: string;
+  views: number;
+  publishedAt: Date;
+  categoryId: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const VideoSchema: Schema = new Schema({
+  slug: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+  },
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  description: {
+    type: String,
+    default: null,
+  },
+  thumbnail: {
+    type: String,
+    required: true,
+  },
+  videoUrl: {
+    type: String,
+    required: true,
+  },
+  duration: {
+    type: String,
+    default: null,
+  },
+  views: {
+    type: Number,
+    default: 0,
+  },
+  publishedAt: {
+    type: Date,
+    required: true,
+  },
+  categoryId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Category',
+    required: true,
+  },
 }, {
   timestamps: true,
 });
 
-// Indexes
-CategorySchema.index({ slug: 1 });
-CategorySchema.index({ isActive: 1 });
+VideoSchema.index({ slug: 1 });
 
-export const Category = mongoose.model<ICategory>('Category', CategorySchema);
+export const Video = mongoose.model<IVideo>('Video', VideoSchema);
+
+// ============== JOB MODEL ==============
+export interface IJob extends Document {
+  _id: Types.ObjectId;
+  title: string;
+  company: string;
+  location: string;
+  salary?: string;
+  jobType: typeof JobTypeEnum[number];
+  remote: boolean;
+  description: string;
+  requirements?: string;
+  applicationUrl: string;
+  tags: string[];
+  status: typeof JobStatusEnum[number];
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const JobSchema: Schema = new Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  company: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  location: {
+    type: String,
+    required: true,
+  },
+  salary: {
+    type: String,
+    default: null,
+  },
+  jobType: {
+    type: String,
+    enum: JobTypeEnum,
+    default: 'FULL_TIME',
+  },
+  remote: {
+    type: Boolean,
+    default: false,
+  },
+  description: {
+    type: String,
+    required: true,
+  },
+  requirements: {
+    type: String,
+    default: null,
+  },
+  applicationUrl: {
+    type: String,
+    required: true,
+  },
+  tags: [{
+    type: String,
+    trim: true,
+  }],
+  status: {
+    type: String,
+    enum: JobStatusEnum,
+    default: 'ACTIVE',
+  },
+  expiresAt: {
+    type: Date,
+    default: null,
+  },
+}, {
+  timestamps: true,
+});
+
+JobSchema.index({ status: 1 });
+JobSchema.index({ jobType: 1 });
+JobSchema.index({ remote: 1 });
+
+export const Job = mongoose.model<IJob>('Job', JobSchema);
+
+// ============== MEMBER MODEL ==============
+export interface IMember extends Document {
+  _id: Types.ObjectId;
+  email: string;
+  name: string;
+  password: string;
+  avatar?: string;
+  emailVerified: boolean;
+  membershipTier: typeof SubscriptionTierEnum[number];
+  membershipStatus?: typeof MembershipStatusEnum[number];
+  paymentGateway?: typeof PaymentGatewayEnum[number];
+  stripeCustomerId?: string;
+  stripeSubscriptionId?: string;
+  paystackCustomerId?: string;
+  paystackSubscriptionCode?: string;
+  paypalSubscriptionId?: string;
+  paypalCustomerId?: string;
+  subscriptionStartDate?: Date;
+  subscriptionEndDate?: Date;
+  firebaseUid?: string;
+  isActive: boolean;
+  lastLoginAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const MemberSchema: Schema = new Schema({
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true,
+  },
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  password: {
+    type: String,
+    required: false,
+  },
+  avatar: {
+    type: String,
+    default: null,
+  },
+  emailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  membershipTier: {
+    type: String,
+    enum: SubscriptionTierEnum,
+    default: 'FREE',
+  },
+  membershipStatus: {
+    type: String,
+    enum: MembershipStatusEnum,
+    default: null,
+  },
+  paymentGateway: {
+    type: String,
+    enum: PaymentGatewayEnum,
+    default: null,
+  },
+  stripeCustomerId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  stripeSubscriptionId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  paystackCustomerId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  paystackSubscriptionCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  paypalSubscriptionId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  paypalCustomerId: {
+    type: String,
+    default: null,
+  },
+  subscriptionStartDate: {
+    type: Date,
+    default: null,
+  },
+  subscriptionEndDate: {
+    type: Date,
+    default: null,
+  },
+  firebaseUid: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  lastLoginAt: {
+    type: Date,
+    default: null,
+  },
+}, {
+  timestamps: true,
+});
+
+MemberSchema.index({ email: 1 });
+MemberSchema.index({ stripeCustomerId: 1 });
+MemberSchema.index({ paystackCustomerId: 1 });
+MemberSchema.index({ paypalSubscriptionId: 1 });
+MemberSchema.index({ membershipTier: 1 });
+MemberSchema.index({ firebaseUid: 1 });
+
+export const Member = mongoose.model<IMember>('Member', MemberSchema);
+
+// ============== SAVED ARTICLE MODEL ==============
+export interface ISavedArticle extends Document {
+  _id: Types.ObjectId;
+  memberId: Types.ObjectId;
+  postId: Types.ObjectId;
+  savedAt: Date;
+}
+
+const SavedArticleSchema: Schema = new Schema({
+  memberId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Member',
+    required: true,
+  },
+  postId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Post',
+    required: true,
+  },
+  savedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+SavedArticleSchema.index({ memberId: 1, postId: 1 }, { unique: true });
+SavedArticleSchema.index({ memberId: 1 });
+SavedArticleSchema.index({ postId: 1 });
+
+export const SavedArticle = mongoose.model<ISavedArticle>('SavedArticle', SavedArticleSchema);
+
+// ============== PAYMENT MODEL ==============
+export interface IPayment extends Document {
+  _id: Types.ObjectId;
+  memberId: Types.ObjectId;
+  gateway: typeof PaymentGatewayEnum[number];
+  gatewayPaymentId: string;
+  amount: number;
+  currency: string;
+  status: string;
+  description?: string;
+  metadata?: string;
+  createdAt: Date;
+}
+
+const PaymentSchema: Schema = new Schema({
+  memberId: {
+    type: Schema.Types.ObjectId,
+    ref: 'Member',
+    required: true,
+  },
+  gateway: {
+    type: String,
+    enum: PaymentGatewayEnum,
+    required: true,
+  },
+  gatewayPaymentId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  amount: {
+    type: Number,
+    required: true,
+  },
+  currency: {
+    type: String,
+    default: 'usd',
+  },
+  status: {
+    type: String,
+    required: true,
+  },
+  description: {
+    type: String,
+    default: null,
+  },
+  metadata: {
+    type: String,
+    default: null,
+  },
+}, {
+  timestamps: { createdAt: true, updatedAt: false },
+});
+
+PaymentSchema.index({ memberId: 1 });
+PaymentSchema.index({ gatewayPaymentId: 1 });
+PaymentSchema.index({ gateway: 1 });
+
+export const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
+
+// ============== RESOURCE MODEL ==============
+export interface IResource extends Document {
+  _id: Types.ObjectId;
+  title: string;
+  description: string;
+  category: typeof ResourceCategoryEnum[number];
+  iconType: typeof ResourceIconTypeEnum[number];
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  downloadCount: number;
+  status: typeof ResourceStatusEnum[number];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const ResourceSchema: Schema = new Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  description: {
+    type: String,
+    required: true,
+  },
+  category: {
+    type: String,
+    enum: ResourceCategoryEnum,
+    default: 'CAREER_TOOLS',
+  },
+  iconType: {
+    type: String,
+    enum: ResourceIconTypeEnum,
+    default: 'FILE_TEXT',
+  },
+  fileUrl: {
+    type: String,
+    required: true,
+  },
+  fileName: {
+    type: String,
+    required: true,
+  },
+  fileSize: {
+    type: Number,
+    required: true,
+  },
+  mimeType: {
+    type: String,
+    required: true,
+  },
+  downloadCount: {
+    type: Number,
+    default: 0,
+  },
+  status: {
+    type: String,
+    enum: ResourceStatusEnum,
+    default: 'DRAFT',
+  },
+}, {
+  timestamps: true,
+});
+
+ResourceSchema.index({ status: 1 });
+ResourceSchema.index({ category: 1 });
+
+export const Resource = mongoose.model<IResource>('Resource', ResourceSchema);
+
+// ============== LEGACY EXPORTS (for compatibility) ==============
+export const Article = Post;
+export type IArticle = IPost;

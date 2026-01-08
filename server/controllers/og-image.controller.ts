@@ -1,6 +1,6 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Post } from '../models/mongodb.js';
 
 /**
  * Generate Open Graph image for a post
@@ -17,22 +17,10 @@ export const generateOGImage = async (req: AuthRequest, res: Response) => {
     const { slug } = req.params;
 
     // Fetch post details
-    const post = await prisma.post.findUnique({
-      where: { slug },
-      include: {
-        author: {
-          select: {
-            name: true
-          }
-        },
-        category: {
-          select: {
-            name: true,
-            color: true
-          }
-        }
-      }
-    });
+    const post = await Post.findOne({ slug })
+      .populate('authorId', 'name')
+      .populate('categoryId', 'name color')
+      .lean();
 
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
@@ -44,10 +32,12 @@ export const generateOGImage = async (req: AuthRequest, res: Response) => {
     }
 
     // Generate SVG OG image
-    const categoryColor = post.category?.color || '#ec4899';
+    const category = (post.categoryId as any);
+    const author = (post.authorId as any);
+    const categoryColor = category?.color || '#ec4899';
     const title = truncateText(post.title, 60);
-    const author = post.author.name;
-    const category = post.category?.name || 'Article';
+    const authorName = author?.name || 'Unknown Author';
+    const categoryName = category?.name || 'Article';
 
     const svg = `
       <svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
@@ -58,9 +48,9 @@ export const generateOGImage = async (req: AuthRequest, res: Response) => {
         <rect width="1200" height="8" fill="${categoryColor}"/>
 
         <!-- Category badge -->
-        <rect x="60" y="80" width="${category.length * 12 + 40}" height="40" rx="20" fill="${categoryColor}"/>
+        <rect x="60" y="80" width="${categoryName.length * 12 + 40}" height="40" rx="20" fill="${categoryColor}"/>
         <text x="80" y="107" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="white">
-          ${category.toUpperCase()}
+          ${categoryName.toUpperCase()}
         </text>
 
         <!-- Title -->
@@ -72,7 +62,7 @@ export const generateOGImage = async (req: AuthRequest, res: Response) => {
 
         <!-- Author -->
         <text x="60" y="550" font-family="Arial, sans-serif" font-size="24" fill="#9CA3AF">
-          by ${author}
+          by ${authorName}
         </text>
 
         <!-- Logo/Site name -->

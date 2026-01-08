@@ -241,6 +241,11 @@ export function Footer() {
                   Cookie Policy
                 </Link>
               </li>
+              <li>
+                <Link to="/admin/login" className="text-background/70 hover:text-primary transition-colors hover:translate-x-1 inline-block">
+                  Admin
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

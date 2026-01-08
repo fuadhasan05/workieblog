@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Member, Payment } from '../models/mongodb.js';
+import mongoose from 'mongoose';
 import stripe from '../utils/stripe.js';
 
 export const createCheckoutSession = async (req: AuthRequest, res: Response) => {
@@ -11,9 +12,7 @@ export const createCheckoutSession = async (req: AuthRequest, res: Response) => 
 
     const { priceId, tier } = req.body;
 
-    const member = await prisma.member.findUnique({
-      where: { id: req.user.userId }
-    });
+    const member = await Member.findById(req.user.userId);
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
@@ -27,16 +26,13 @@ export const createCheckoutSession = async (req: AuthRequest, res: Response) => 
         email: member.email,
         name: member.name,
         metadata: {
-          memberId: member.id
+          memberId: member._id.toString()
         }
       });
 
       customerId = customer.id;
 
-      await prisma.member.update({
-        where: { id: member.id },
-        data: { stripeCustomerId: customerId }
-      });
+      await Member.findByIdAndUpdate(member._id, { stripeCustomerId: customerId });
     }
 
     // Create checkout session
@@ -53,7 +49,7 @@ export const createCheckoutSession = async (req: AuthRequest, res: Response) => 
       success_url: `${process.env.FRONTEND_URL}/member/dashboard?success=true`,
       cancel_url: `${process.env.FRONTEND_URL}/pricing?canceled=true`,
       metadata: {
-        memberId: member.id,
+        memberId: member._id.toString(),
         tier
       }
     });
@@ -71,9 +67,7 @@ export const createPortalSession = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const member = await prisma.member.findUnique({
-      where: { id: req.user.userId }
-    });
+    const member = await Member.findById(req.user.userId);
 
     if (!member || !member.stripeCustomerId) {
       return res.status(404).json({ error: 'No subscription found' });
@@ -156,22 +150,17 @@ async function handleCheckoutComplete(session: any) {
 
   if (!memberId) return;
 
-  await prisma.member.update({
-    where: { id: memberId },
-    data: {
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId,
-      membershipTier: tier,
-      membershipStatus: 'ACTIVE',
-      subscriptionStartDate: new Date()
-    }
+  await Member.findByIdAndUpdate(memberId, {
+    stripeCustomerId: customerId,
+    stripeSubscriptionId: subscriptionId,
+    membershipTier: tier,
+    membershipStatus: 'ACTIVE',
+    subscriptionStartDate: new Date()
   });
 }
 
 async function handleSubscriptionUpdate(subscription: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeSubscriptionId: subscription.id }
-  });
+  const member = await Member.findOne({ stripeSubscriptionId: subscription.id });
 
   if (!member) return;
 
@@ -180,66 +169,50 @@ async function handleSubscriptionUpdate(subscription: any) {
   else if (subscription.status === 'past_due') status = 'PAST_DUE';
   else if (subscription.status === 'trialing') status = 'TRIALING';
 
-  await prisma.member.update({
-    where: { id: member.id },
-    data: {
-      membershipStatus: status,
-      subscriptionEndDate: subscription.cancel_at
-        ? new Date(subscription.cancel_at * 1000)
-        : null
-    }
+  await Member.findByIdAndUpdate(member._id, {
+    membershipStatus: status,
+    subscriptionEndDate: subscription.cancel_at
+      ? new Date(subscription.cancel_at * 1000)
+      : null
   });
 }
 
 async function handleSubscriptionDeleted(subscription: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeSubscriptionId: subscription.id }
-  });
+  const member = await Member.findOne({ stripeSubscriptionId: subscription.id });
 
   if (!member) return;
 
-  await prisma.member.update({
-    where: { id: member.id },
-    data: {
-      membershipTier: 'FREE',
-      membershipStatus: 'CANCELED',
-      stripeSubscriptionId: null,
-      subscriptionEndDate: new Date()
-    }
+  await Member.findByIdAndUpdate(member._id, {
+    membershipTier: 'FREE',
+    membershipStatus: 'CANCELED',
+    stripeSubscriptionId: null,
+    subscriptionEndDate: new Date()
   });
 }
 
 async function handlePaymentSucceeded(invoice: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeCustomerId: invoice.customer }
-  });
+  const member = await Member.findOne({ stripeCustomerId: invoice.customer });
 
   if (!member) return;
 
-  await prisma.payment.create({
-    data: {
-      memberId: member.id,
-      stripePaymentId: invoice.payment_intent,
-      amount: invoice.amount_paid,
-      currency: invoice.currency,
-      status: 'succeeded',
-      description: invoice.description
-    }
+  await Payment.create({
+    memberId: member._id,
+    gateway: 'STRIPE',
+    gatewayPaymentId: invoice.payment_intent,
+    amount: invoice.amount_paid,
+    currency: invoice.currency,
+    status: 'succeeded',
+    description: invoice.description
   });
 }
 
 async function handlePaymentFailed(invoice: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeCustomerId: invoice.customer }
-  });
+  const member = await Member.findOne({ stripeCustomerId: invoice.customer });
 
   if (!member) return;
 
-  await prisma.member.update({
-    where: { id: member.id },
-    data: {
-      membershipStatus: 'PAST_DUE'
-    }
+  await Member.findByIdAndUpdate(member._id, {
+    membershipStatus: 'PAST_DUE'
   });
 }
 
@@ -249,16 +222,9 @@ export const getSubscriptionStatus = async (req: AuthRequest, res: Response) => 
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const member = await prisma.member.findUnique({
-      where: { id: req.user.userId },
-      select: {
-        membershipTier: true,
-        membershipStatus: true,
-        subscriptionStartDate: true,
-        subscriptionEndDate: true,
-        stripeSubscriptionId: true
-      }
-    });
+    const member = await Member.findById(req.user.userId)
+      .select('membershipTier membershipStatus subscriptionStartDate subscriptionEndDate stripeSubscriptionId')
+      .lean();
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });

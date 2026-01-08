@@ -1,6 +1,7 @@
 import { Response, Request } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Job } from '../models/mongodb.js';
+import mongoose from 'mongoose';
 
 // Public: Get all active jobs
 export const getJobs = async (req: Request, res: Response) => {
@@ -18,53 +19,59 @@ export const getJobs = async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const filter: any = {};
 
     // For public API, only show active jobs
     if (status === 'ACTIVE') {
-      where.status = 'ACTIVE';
-      where.OR = [
+      filter.status = 'ACTIVE';
+      filter.$or = [
         { expiresAt: null },
-        { expiresAt: { gte: new Date() } }
+        { expiresAt: { $gte: new Date() } }
       ];
     } else if (status !== 'all') {
-      where.status = status;
+      filter.status = status;
     }
 
     if (search) {
-      where.AND = [
-        ...(where.AND || []),
+      const searchRegex = new RegExp(search as string, 'i');
+      filter.$and = [
+        ...(filter.$and || []),
         {
-          OR: [
-            { title: { contains: search as string, mode: 'insensitive' } },
-            { company: { contains: search as string, mode: 'insensitive' } },
-            { location: { contains: search as string, mode: 'insensitive' } },
-            { tags: { hasSome: [(search as string).toLowerCase()] } }
+          $or: [
+            { title: searchRegex },
+            { company: searchRegex },
+            { location: searchRegex },
+            { tags: { $in: [(search as string).toLowerCase()] } }
           ]
         }
       ];
     }
 
     if (jobType && jobType !== 'all') {
-      where.jobType = jobType;
+      filter.jobType = jobType;
     }
 
     if (remote === 'true') {
-      where.remote = true;
+      filter.remote = true;
     }
 
     const [jobs, total] = await Promise.all([
-      prisma.job.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limitNum
-      }),
-      prisma.job.count({ where })
+      Job.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Job.countDocuments(filter)
     ]);
 
+    // Transform jobs to include id field
+    const transformedJobs = jobs.map(job => ({
+      ...job,
+      id: job._id.toString()
+    }));
+
     res.json({
-      jobs,
+      jobs: transformedJobs,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -83,15 +90,22 @@ export const getJob = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    const job = await prisma.job.findUnique({
-      where: { id }
-    });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
+
+    const job = await Job.findById(id).lean();
 
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    res.json({ job });
+    res.json({ 
+      job: {
+        ...job,
+        id: job._id.toString()
+      }
+    });
   } catch (error: any) {
     console.error('Get job error:', error);
     res.status(500).json({ error: error.message });
@@ -120,24 +134,27 @@ export const createJob = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const job = await prisma.job.create({
-      data: {
-        title,
-        company,
-        location,
-        salary,
-        jobType: jobType || 'FULL_TIME',
-        remote: remote || false,
-        description,
-        requirements,
-        applicationUrl,
-        tags: tags || [],
-        status: status || 'ACTIVE',
-        expiresAt: expiresAt ? new Date(expiresAt) : null
-      }
+    const job = await Job.create({
+      title,
+      company,
+      location,
+      salary,
+      jobType: jobType || 'FULL_TIME',
+      remote: remote || false,
+      description,
+      requirements,
+      applicationUrl,
+      tags: tags || [],
+      status: status || 'ACTIVE',
+      expiresAt: expiresAt ? new Date(expiresAt) : undefined
     });
 
-    res.status(201).json({ job });
+    res.status(201).json({ 
+      job: {
+        ...job.toObject(),
+        id: job._id.toString()
+      }
+    });
   } catch (error: any) {
     console.error('Create job error:', error);
     res.status(500).json({ error: error.message });
@@ -167,17 +184,19 @@ export const updateJob = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const existingJob = await prisma.job.findUnique({
-      where: { id }
-    });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
+
+    const existingJob = await Job.findById(id);
 
     if (!existingJob) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    const job = await prisma.job.update({
-      where: { id },
-      data: {
+    const job = await Job.findByIdAndUpdate(
+      id,
+      {
         title,
         company,
         location,
@@ -189,11 +208,17 @@ export const updateJob = async (req: AuthRequest, res: Response) => {
         applicationUrl,
         tags,
         status,
-        expiresAt: expiresAt ? new Date(expiresAt) : null
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined
+      },
+      { new: true }
+    );
+
+    res.json({ 
+      job: {
+        ...job!.toObject(),
+        id: job!._id.toString()
       }
     });
-
-    res.json({ job });
   } catch (error: any) {
     console.error('Update job error:', error);
     res.status(500).json({ error: error.message });
@@ -209,17 +234,17 @@ export const deleteJob = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const existingJob = await prisma.job.findUnique({
-      where: { id }
-    });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
+
+    const existingJob = await Job.findById(id);
 
     if (!existingJob) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    await prisma.job.delete({
-      where: { id }
-    });
+    await Job.findByIdAndDelete(id);
 
     res.json({ message: 'Job deleted successfully' });
   } catch (error: any) {
@@ -251,25 +276,25 @@ export const submitJob = async (req: Request, res: Response) => {
     }
 
     // Create job with INACTIVE status for admin review
-    const job = await prisma.job.create({
-      data: {
-        title,
-        company,
-        location,
-        salary: salary || null,
-        jobType: jobType || 'FULL_TIME',
-        remote: remote || false,
-        description,
-        requirements: requirements || null,
-        applicationUrl,
-        tags: tags || [],
-        status: 'INACTIVE', // Always starts inactive for review
-        expiresAt: null
-      }
+    const job = await Job.create({
+      title,
+      company,
+      location,
+      salary: salary || undefined,
+      jobType: jobType || 'FULL_TIME',
+      remote: remote || false,
+      description,
+      requirements: requirements || undefined,
+      applicationUrl,
+      tags: tags || [],
+      status: 'INACTIVE' // Always starts inactive for review
     });
 
     res.status(201).json({ 
-      job,
+      job: {
+        ...job.toObject(),
+        id: job._id.toString()
+      },
       message: 'Job submitted successfully. It will be reviewed by our team.'
     });
   } catch (error: any) {

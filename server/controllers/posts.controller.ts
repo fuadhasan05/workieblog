@@ -1,6 +1,47 @@
 import { Response } from 'express';
+import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Post, User, Category, Tag } from '../models/mongodb.js';
+
+// Helper to format post with relations
+const formatPost = (post: any, author?: any, category?: any, tags?: any[]) => ({
+  id: post._id.toString(),
+  slug: post.slug,
+  title: post.title,
+  excerpt: post.excerpt,
+  content: post.content,
+  featuredImage: post.featuredImage,
+  status: post.status,
+  publishedAt: post.publishedAt,
+  scheduledFor: post.scheduledFor,
+  readTime: post.readTime,
+  isFeatured: post.isFeatured,
+  isPremium: post.isPremium,
+  accessLevel: post.accessLevel,
+  views: post.views,
+  authorId: post.authorId?.toString(),
+  categoryId: post.categoryId?.toString(),
+  createdAt: post.createdAt,
+  updatedAt: post.updatedAt,
+  author: author ? {
+    id: author._id.toString(),
+    name: author.name,
+    email: author.email,
+    avatar: author.avatar,
+    bio: author.bio
+  } : undefined,
+  category: category ? {
+    id: category._id.toString(),
+    slug: category.slug,
+    name: category.name,
+    color: category.color
+  } : undefined,
+  tags: tags ? tags.map((tag: any) => ({
+    id: tag._id.toString(),
+    slug: tag.slug,
+    name: tag.name
+  })) : []
+});
 
 export const getPosts = async (req: AuthRequest, res: Response) => {
   try {
@@ -20,76 +61,86 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const filter: any = {};
 
     if (status) {
-      where.status = status;
-    }
-
-    if (category) {
-      where.category = { slug: category };
+      filter.status = status;
     }
 
     if (authorId) {
-      where.authorId = authorId;
+      filter.authorId = new mongoose.Types.ObjectId(authorId as string);
     }
 
     // Enhanced search: title, excerpt, and content
     if (search) {
-      where.OR = [
-        { title: { contains: search as string, mode: 'insensitive' } },
-        { excerpt: { contains: search as string, mode: 'insensitive' } },
-        { content: { contains: search as string, mode: 'insensitive' } }
+      filter.$or = [
+        { title: { $regex: search as string, $options: 'i' } },
+        { excerpt: { $regex: search as string, $options: 'i' } },
+        { content: { $regex: search as string, $options: 'i' } }
       ];
     }
 
     // Date range filtering
     if (startDate || endDate) {
-      where.publishedAt = {};
+      filter.publishedAt = {};
       if (startDate) {
-        where.publishedAt.gte = new Date(startDate as string);
+        filter.publishedAt.$gte = new Date(startDate as string);
       }
       if (endDate) {
-        where.publishedAt.lte = new Date(endDate as string);
+        filter.publishedAt.$lte = new Date(endDate as string);
+      }
+    }
+
+    // Category filtering (by slug)
+    if (category) {
+      const cat = await Category.findOne({ slug: category as string });
+      if (cat) {
+        filter.categoryId = cat._id;
       }
     }
 
     // Tag filtering
     if (tags) {
       const tagArray = (tags as string).split(',');
-      where.tags = {
-        some: {
-          slug: { in: tagArray }
-        }
-      };
+      const tagDocs = await Tag.find({ slug: { $in: tagArray } });
+      if (tagDocs.length > 0) {
+        filter.tags = { $in: tagDocs.map(t => t._id) };
+      }
     }
 
     const [posts, total] = await Promise.all([
-      prisma.post.findMany({
-        where,
-        include: {
-          author: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatar: true
-            }
-          },
-          category: true,
-          tags: true
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip,
-        take: limitNum
-      }),
-      prisma.post.count({ where })
+      Post.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Post.countDocuments(filter)
     ]);
 
+    // Fetch related data
+    const authorIds = [...new Set(posts.map(p => p.authorId))];
+    const categoryIds = [...new Set(posts.map(p => p.categoryId))];
+    const tagIds = [...new Set(posts.flatMap(p => p.tags || []))];
+
+    const [authors, categories, allTags] = await Promise.all([
+      User.find({ _id: { $in: authorIds } }).select('-password').lean(),
+      Category.find({ _id: { $in: categoryIds } }).lean(),
+      Tag.find({ _id: { $in: tagIds } }).lean()
+    ]);
+
+    const authorMap = new Map(authors.map(a => [a._id.toString(), a]));
+    const categoryMap = new Map(categories.map(c => [c._id.toString(), c]));
+    const tagMap = new Map(allTags.map(t => [t._id.toString(), t]));
+
+    const formattedPosts = posts.map(post => {
+      const author = post.authorId ? authorMap.get(post.authorId.toString()) : null;
+      const category = post.categoryId ? categoryMap.get(post.categoryId.toString()) : null;
+      const postTags = (post.tags || []).map((tagId: any) => tagMap.get(tagId.toString())).filter(Boolean);
+      return formatPost(post, author, category, postTags);
+    });
+
     res.json({
-      posts,
+      posts: formattedPosts,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -108,31 +159,24 @@ export const getPost = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
 
     // Support both ID and slug lookup
-    // Check if the parameter looks like a UUID (ID) or a slug
-    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
 
-    const post = await prisma.post.findUnique({
-      where: isUUID ? { id } : { slug: id },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true,
-            bio: true
-          }
-        },
-        category: true,
-        tags: true
-      }
-    });
+    const post = await Post.findOne(
+      isObjectId ? { _id: id } : { slug: id }
+    ).lean();
 
     if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    res.json({ post });
+    // Fetch related data
+    const [author, category, tags] = await Promise.all([
+      post.authorId ? User.findById(post.authorId).select('-password').lean() : null,
+      post.categoryId ? Category.findById(post.categoryId).lean() : null,
+      post.tags?.length ? Tag.find({ _id: { $in: post.tags } }).lean() : []
+    ]);
+
+    res.json({ post: formatPost(post, author, category, tags) });
   } catch (error: any) {
     console.error('Get post error:', error);
     res.status(500).json({ error: error.message });
@@ -162,49 +206,38 @@ export const createPost = async (req: AuthRequest, res: Response) => {
     }
 
     // Check if slug already exists
-    const existingPost = await prisma.post.findUnique({
-      where: { slug }
-    });
+    const existingPost = await Post.findOne({ slug });
 
     if (existingPost) {
       return res.status(400).json({ error: 'Slug already exists' });
     }
 
     // Create post
-    const post = await prisma.post.create({
-      data: {
-        title,
-        slug,
-        excerpt,
-        content,
-        featuredImage,
-        status: status || 'DRAFT',
-        publishedAt: status === 'PUBLISHED' ? new Date() : publishedAt,
-        scheduledFor,
-        authorId: req.user.userId,
-        categoryId,
-        isFeatured: isFeatured || false,
-        isPremium: isPremium || false,
-        readTime,
-        tags: tagIds ? {
-          connect: tagIds.map((id: string) => ({ id }))
-        } : undefined
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true
-          }
-        },
-        category: true,
-        tags: true
-      }
+    const post = await Post.create({
+      title,
+      slug,
+      excerpt,
+      content,
+      featuredImage,
+      status: status || 'DRAFT',
+      publishedAt: status === 'PUBLISHED' ? new Date() : publishedAt,
+      scheduledFor,
+      authorId: new mongoose.Types.ObjectId(req.user.userId),
+      categoryId: categoryId ? new mongoose.Types.ObjectId(categoryId) : undefined,
+      isFeatured: isFeatured || false,
+      isPremium: isPremium || false,
+      readTime,
+      tags: tagIds ? tagIds.map((id: string) => new mongoose.Types.ObjectId(id)) : []
     });
 
-    res.status(201).json({ post });
+    // Fetch related data
+    const [author, category, tags] = await Promise.all([
+      User.findById(post.authorId).select('-password').lean(),
+      post.categoryId ? Category.findById(post.categoryId).lean() : null,
+      post.tags?.length ? Tag.find({ _id: { $in: post.tags } }).lean() : []
+    ]);
+
+    res.status(201).json({ post: formatPost(post.toObject(), author, category, tags) });
   } catch (error: any) {
     console.error('Create post error:', error);
     res.status(500).json({ error: error.message });
@@ -235,9 +268,7 @@ export const updatePost = async (req: AuthRequest, res: Response) => {
     }
 
     // Check if post exists
-    const existingPost = await prisma.post.findUnique({
-      where: { id }
-    });
+    const existingPost = await Post.findById(id);
 
     if (!existingPost) {
       return res.status(404).json({ error: 'Post not found' });
@@ -247,59 +278,67 @@ export const updatePost = async (req: AuthRequest, res: Response) => {
     if (
       req.user.role !== 'ADMIN' &&
       req.user.role !== 'EDITOR' &&
-      existingPost.authorId !== req.user.userId
+      existingPost.authorId.toString() !== req.user.userId
     ) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
     // Check if new slug already exists
     if (slug && slug !== existingPost.slug) {
-      const slugExists = await prisma.post.findUnique({
-        where: { slug }
-      });
+      const slugExists = await Post.findOne({ slug });
 
       if (slugExists) {
         return res.status(400).json({ error: 'Slug already exists' });
       }
     }
 
-    // Update post
-    const post = await prisma.post.update({
-      where: { id },
-      data: {
-        title,
-        slug,
-        excerpt,
-        content,
-        featuredImage,
-        status,
-        publishedAt: status === 'PUBLISHED' && !existingPost.publishedAt
-          ? new Date()
-          : publishedAt,
-        scheduledFor,
-        categoryId,
-        isFeatured,
-        isPremium,
-        readTime,
-        tags: tagIds ? {
-          set: tagIds.map((id: string) => ({ id }))
-        } : undefined
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            avatar: true
-          }
-        },
-        category: true,
-        tags: true
+    // Build update data
+    const updateData: any = {
+      title,
+      slug,
+      excerpt,
+      content,
+      featuredImage,
+      status,
+      publishedAt: status === 'PUBLISHED' && !existingPost.publishedAt
+        ? new Date()
+        : publishedAt,
+      scheduledFor,
+      isFeatured,
+      isPremium,
+      readTime
+    };
+
+    if (categoryId) {
+      updateData.categoryId = new mongoose.Types.ObjectId(categoryId);
+    }
+
+    if (tagIds) {
+      updateData.tags = tagIds.map((id: string) => new mongoose.Types.ObjectId(id));
+    }
+
+    // Remove undefined values
+    Object.keys(updateData).forEach(key => {
+      if (updateData[key] === undefined) {
+        delete updateData[key];
       }
     });
 
-    res.json({ post });
+    // Update post
+    const post = await Post.findByIdAndUpdate(id, updateData, { new: true }).lean();
+
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    // Fetch related data
+    const [author, category, tags] = await Promise.all([
+      post.authorId ? User.findById(post.authorId).select('-password').lean() : null,
+      post.categoryId ? Category.findById(post.categoryId).lean() : null,
+      post.tags?.length ? Tag.find({ _id: { $in: post.tags } }).lean() : []
+    ]);
+
+    res.json({ post: formatPost(post, author, category, tags) });
   } catch (error: any) {
     console.error('Update post error:', error);
     res.status(500).json({ error: error.message });
@@ -315,9 +354,7 @@ export const deletePost = async (req: AuthRequest, res: Response) => {
     }
 
     // Check if post exists
-    const existingPost = await prisma.post.findUnique({
-      where: { id }
-    });
+    const existingPost = await Post.findById(id);
 
     if (!existingPost) {
       return res.status(404).json({ error: 'Post not found' });
@@ -326,14 +363,12 @@ export const deletePost = async (req: AuthRequest, res: Response) => {
     // Check permissions
     if (
       req.user.role !== 'ADMIN' &&
-      existingPost.authorId !== req.user.userId
+      existingPost.authorId.toString() !== req.user.userId
     ) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    await prisma.post.delete({
-      where: { id }
-    });
+    await Post.findByIdAndDelete(id);
 
     res.json({ message: 'Post deleted successfully' });
   } catch (error: any) {
@@ -346,20 +381,17 @@ export const incrementPostViews = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const post = await prisma.post.update({
-      where: { id },
-      data: {
-        views: {
-          increment: 1
-        }
-      },
-      select: {
-        id: true,
-        views: true
-      }
-    });
+    const post = await Post.findByIdAndUpdate(
+      id,
+      { $inc: { views: 1 } },
+      { new: true }
+    ).select('_id views');
 
-    res.json({ post });
+    if (!post) {
+      return res.status(404).json({ error: 'Post not found' });
+    }
+
+    res.json({ post: { id: post._id.toString(), views: post.views } });
   } catch (error: any) {
     console.error('Increment views error:', error);
     res.status(500).json({ error: error.message });

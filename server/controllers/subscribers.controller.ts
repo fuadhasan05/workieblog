@@ -1,21 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Subscriber } from '../models/mongodb.js';
 import mongoose from 'mongoose';
-
-// MongoDB Subscriber Schema (fallback)
-const subscriberSchema = new mongoose.Schema({
-  email: { type: String, required: true, unique: true },
-  name: String,
-  tier: { type: String, default: 'FREE' },
-  isActive: { type: Boolean, default: true },
-  source: String,
-  subscribedAt: { type: Date, default: Date.now },
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
-});
-
-const MongoSubscriber = mongoose.models.Subscriber || mongoose.model('Subscriber', subscriberSchema);
 
 export const getSubscribers = async (req: AuthRequest, res: Response) => {
   try {
@@ -31,37 +17,41 @@ export const getSubscribers = async (req: AuthRequest, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const filter: any = {};
 
     if (tier) {
-      where.tier = tier;
+      filter.tier = tier;
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
+      filter.isActive = isActive === 'true';
     }
 
     if (search) {
-      where.OR = [
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { name: { contains: search as string, mode: 'insensitive' } }
+      const searchRegex = new RegExp(search as string, 'i');
+      filter.$or = [
+        { email: searchRegex },
+        { name: searchRegex }
       ];
     }
 
     const [subscribers, total] = await Promise.all([
-      prisma.subscriber.findMany({
-        where,
-        orderBy: {
-          subscribedAt: 'desc'
-        },
-        skip,
-        take: limitNum
-      }),
-      prisma.subscriber.count({ where })
+      Subscriber.find(filter)
+        .sort({ subscribedAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Subscriber.countDocuments(filter)
     ]);
 
+    // Transform subscribers to include id field
+    const transformedSubscribers = subscribers.map(sub => ({
+      ...sub,
+      id: sub._id.toString()
+    }));
+
     res.json({
-      subscribers,
+      subscribers: transformedSubscribers,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -89,55 +79,28 @@ export const createSubscriber = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    try {
-      // Try Prisma first
-      const existingSubscriber = await prisma.subscriber.findUnique({
-        where: { email }
-      });
+    // Check if subscriber already exists
+    const existingSubscriber = await Subscriber.findOne({ email: email.toLowerCase() });
 
-      if (existingSubscriber) {
-        return res.status(400).json({ error: 'You are already subscribed!' });
-      }
-
-      const subscriber = await prisma.subscriber.create({
-        data: {
-          email,
-          name,
-          tier: tier || 'FREE',
-          isActive: true,
-          subscribedAt: new Date()
-        }
-      });
-
-      res.status(201).json({ 
-        subscriber,
-        message: 'Successfully subscribed!' 
-      });
-
-    } catch (prismaError) {
-      console.log('Prisma not available, using MongoDB fallback');
-      
-      // Fallback to MongoDB
-      const existingSubscriber = await MongoSubscriber.findOne({ email });
-      
-      if (existingSubscriber) {
-        return res.status(400).json({ error: 'You are already subscribed!' });
-      }
-
-      const subscriber = await MongoSubscriber.create({
-        email,
-        name,
-        tier: tier || 'FREE',
-        isActive: true,
-        source: source || 'unknown',
-        subscribedAt: new Date()
-      });
-
-      res.status(201).json({ 
-        subscriber,
-        message: 'Successfully subscribed!' 
-      });
+    if (existingSubscriber) {
+      return res.status(400).json({ error: 'You are already subscribed!' });
     }
+
+    const subscriber = await Subscriber.create({
+      email: email.toLowerCase(),
+      name,
+      tier: tier || 'FREE',
+      isActive: true,
+      subscribedAt: new Date()
+    });
+
+    res.status(201).json({ 
+      subscriber: {
+        ...subscriber.toObject(),
+        id: subscriber._id.toString()
+      },
+      message: 'Successfully subscribed!' 
+    });
 
   } catch (error: any) {
     console.error('Create subscriber error:', error);
@@ -158,17 +121,32 @@ export const updateSubscriber = async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { tier, isActive, name } = req.body;
 
-    const subscriber = await prisma.subscriber.update({
-      where: { id },
-      data: {
-        tier,
-        isActive,
-        name,
-        lastActiveAt: isActive ? new Date() : undefined
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid subscriber ID' });
+    }
+
+    const updateData: any = {};
+    if (tier !== undefined) updateData.tier = tier;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (name !== undefined) updateData.name = name;
+    if (isActive) updateData.lastActiveAt = new Date();
+
+    const subscriber = await Subscriber.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!subscriber) {
+      return res.status(404).json({ error: 'Subscriber not found' });
+    }
+
+    res.json({ 
+      subscriber: {
+        ...subscriber.toObject(),
+        id: subscriber._id.toString()
       }
     });
-
-    res.json({ subscriber });
   } catch (error: any) {
     console.error('Update subscriber error:', error);
     res.status(500).json({ error: error.message });
@@ -179,22 +157,19 @@ export const exportSubscribers = async (req: AuthRequest, res: Response) => {
   try {
     const { tier, isActive } = req.query;
 
-    const where: any = {};
+    const filter: any = {};
 
     if (tier) {
-      where.tier = tier;
+      filter.tier = tier;
     }
 
     if (isActive !== undefined) {
-      where.isActive = isActive === 'true';
+      filter.isActive = isActive === 'true';
     }
 
-    const subscribers = await prisma.subscriber.findMany({
-      where,
-      orderBy: {
-        subscribedAt: 'desc'
-      }
-    });
+    const subscribers = await Subscriber.find(filter)
+      .sort({ subscribedAt: -1 })
+      .lean();
 
     // Convert to CSV
     const headers = ['Email', 'Name', 'Tier', 'Subscribed At', 'Last Active', 'Status'];

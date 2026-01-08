@@ -5,6 +5,7 @@ const router = express.Router();
 
 // Authentication routes
 router.post('/verify-token', FirebaseMongoController.verifyFirebaseToken);
+router.post('/sync-user', FirebaseMongoController.syncUser);
 
 // Article management routes
 router.post('/articles', FirebaseMongoController.createArticle);

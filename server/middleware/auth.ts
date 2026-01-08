@@ -38,13 +38,16 @@ export const authenticateOptional = (req: AuthRequest, res: Response, next: Next
   }
 };
 
-export const authorize = (...roles: string[]) => {
+export const authorize = (...roles: (string | string[])[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    if (!roles.includes(req.user.role)) {
+    // Flatten the roles array in case an array was passed
+    const flatRoles = roles.flat();
+
+    if (!flatRoles.includes(req.user.role)) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
@@ -56,6 +59,6 @@ export const authorize = (...roles: string[]) => {
 export const authenticateToken = authenticate;
 
 // Role-based authorization middleware
-export const requireRole = (...roles: string[]) => {
+export const requireRole = (...roles: (string | string[])[]) => {
   return authorize(...roles);
 };

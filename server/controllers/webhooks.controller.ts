@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import crypto from 'crypto';
-import prisma from '../utils/prisma.js';
+import { Member, Payment } from '../models/mongodb.js';
+import mongoose from 'mongoose';
 import stripe from '../utils/stripe.js';
 
 // ============================================================================
@@ -71,23 +72,18 @@ async function handleStripeCheckoutComplete(session: any) {
 
   if (!memberId) return;
 
-  await prisma.member.update({
-    where: { id: memberId },
-    data: {
-      stripeCustomerId: customerId,
-      stripeSubscriptionId: subscriptionId,
-      membershipTier: tier,
-      membershipStatus: 'ACTIVE',
-      paymentGateway: 'STRIPE',
-      subscriptionStartDate: new Date()
-    }
+  await Member.findByIdAndUpdate(memberId, {
+    stripeCustomerId: customerId,
+    stripeSubscriptionId: subscriptionId,
+    membershipTier: tier,
+    membershipStatus: 'ACTIVE',
+    paymentGateway: 'STRIPE',
+    subscriptionStartDate: new Date()
   });
 }
 
 async function handleStripeSubscriptionUpdate(subscription: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeSubscriptionId: subscription.id }
-  });
+  const member = await Member.findOne({ stripeSubscriptionId: subscription.id });
 
   if (!member) return;
 
@@ -96,67 +92,50 @@ async function handleStripeSubscriptionUpdate(subscription: any) {
   else if (subscription.status === 'past_due') status = 'PAST_DUE';
   else if (subscription.status === 'trialing') status = 'TRIALING';
 
-  await prisma.member.update({
-    where: { id: member.id },
-    data: {
-      membershipStatus: status,
-      subscriptionEndDate: subscription.cancel_at
-        ? new Date(subscription.cancel_at * 1000)
-        : null
-    }
+  await Member.findByIdAndUpdate(member._id, {
+    membershipStatus: status,
+    subscriptionEndDate: subscription.cancel_at
+      ? new Date(subscription.cancel_at * 1000)
+      : null
   });
 }
 
 async function handleStripeSubscriptionDeleted(subscription: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeSubscriptionId: subscription.id }
-  });
+  const member = await Member.findOne({ stripeSubscriptionId: subscription.id });
 
   if (!member) return;
 
-  await prisma.member.update({
-    where: { id: member.id },
-    data: {
-      membershipTier: 'FREE',
-      membershipStatus: 'CANCELED',
-      stripeSubscriptionId: null,
-      subscriptionEndDate: new Date()
-    }
+  await Member.findByIdAndUpdate(member._id, {
+    membershipTier: 'FREE',
+    membershipStatus: 'CANCELED',
+    stripeSubscriptionId: null,
+    subscriptionEndDate: new Date()
   });
 }
 
 async function handleStripePaymentSucceeded(invoice: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeCustomerId: invoice.customer }
-  });
+  const member = await Member.findOne({ stripeCustomerId: invoice.customer });
 
   if (!member) return;
 
-  await prisma.payment.create({
-    data: {
-      memberId: member.id,
-      gateway: 'STRIPE',
-      gatewayPaymentId: invoice.payment_intent,
-      amount: invoice.amount_paid,
-      currency: invoice.currency,
-      status: 'succeeded',
-      description: invoice.description
-    }
+  await Payment.create({
+    memberId: member._id,
+    gateway: 'STRIPE',
+    gatewayPaymentId: invoice.payment_intent,
+    amount: invoice.amount_paid,
+    currency: invoice.currency,
+    status: 'succeeded',
+    description: invoice.description
   });
 }
 
 async function handleStripePaymentFailed(invoice: any) {
-  const member = await prisma.member.findUnique({
-    where: { stripeCustomerId: invoice.customer }
-  });
+  const member = await Member.findOne({ stripeCustomerId: invoice.customer });
 
   if (!member) return;
 
-  await prisma.member.update({
-    where: { id: member.id },
-    data: {
-      membershipStatus: 'PAST_DUE'
-    }
+  await Member.findByIdAndUpdate(member._id, {
+    membershipStatus: 'PAST_DUE'
   });
 }
 
@@ -209,36 +188,29 @@ async function handlePaystackChargeSuccess(data: any) {
   const { metadata, customer, reference, amount, currency } = data;
 
   if (metadata && metadata.memberId) {
-    await prisma.payment.create({
-      data: {
-        memberId: metadata.memberId,
-        gateway: 'PAYSTACK',
-        gatewayPaymentId: reference,
-        amount,
-        currency: currency.toLowerCase(),
-        status: 'succeeded',
-        description: metadata.tier ? `${metadata.tier} subscription` : 'Payment',
-        metadata: JSON.stringify(data)
-      }
+    await Payment.create({
+      memberId: new mongoose.Types.ObjectId(metadata.memberId),
+      gateway: 'PAYSTACK',
+      gatewayPaymentId: reference,
+      amount,
+      currency: currency.toLowerCase(),
+      status: 'succeeded',
+      description: metadata.tier ? `${metadata.tier} subscription` : 'Payment',
+      metadata: JSON.stringify(data)
     });
   }
 }
 
 async function handlePaystackSubscriptionCreate(data: any) {
-  const { customer, subscription_code, email_token } = data;
+  const { customer, subscription_code } = data;
 
   // Find member by customer code
-  const member = await prisma.member.findUnique({
-    where: { paystackCustomerId: customer.customer_code }
-  });
+  const member = await Member.findOne({ paystackCustomerId: customer.customer_code });
 
   if (member) {
-    await prisma.member.update({
-      where: { id: member.id },
-      data: {
-        paystackSubscriptionCode: subscription_code,
-        membershipStatus: 'ACTIVE'
-      }
+    await Member.findByIdAndUpdate(member._id, {
+      paystackSubscriptionCode: subscription_code,
+      membershipStatus: 'ACTIVE'
     });
   }
 }
@@ -246,18 +218,13 @@ async function handlePaystackSubscriptionCreate(data: any) {
 async function handlePaystackSubscriptionDisable(data: any) {
   const { subscription_code } = data;
 
-  const member = await prisma.member.findUnique({
-    where: { paystackSubscriptionCode: subscription_code }
-  });
+  const member = await Member.findOne({ paystackSubscriptionCode: subscription_code });
 
   if (member) {
-    await prisma.member.update({
-      where: { id: member.id },
-      data: {
-        membershipStatus: 'CANCELED',
-        membershipTier: 'FREE',
-        subscriptionEndDate: new Date()
-      }
+    await Member.findByIdAndUpdate(member._id, {
+      membershipStatus: 'CANCELED',
+      membershipTier: 'FREE',
+      subscriptionEndDate: new Date()
     });
   }
 }
@@ -265,16 +232,11 @@ async function handlePaystackSubscriptionDisable(data: any) {
 async function handlePaystackSubscriptionEnable(data: any) {
   const { subscription_code } = data;
 
-  const member = await prisma.member.findUnique({
-    where: { paystackSubscriptionCode: subscription_code }
-  });
+  const member = await Member.findOne({ paystackSubscriptionCode: subscription_code });
 
   if (member) {
-    await prisma.member.update({
-      where: { id: member.id },
-      data: {
-        membershipStatus: 'ACTIVE'
-      }
+    await Member.findByIdAndUpdate(member._id, {
+      membershipStatus: 'ACTIVE'
     });
   }
 }
@@ -325,47 +287,34 @@ async function handlePayPalSubscriptionActivated(resource: any) {
     const planId = resource.plan_id;
     const tier = planId === process.env.PAYPAL_PREMIUM_PLAN_ID ? 'PREMIUM' : 'VIP';
 
-    await prisma.member.update({
-      where: { id: customId },
-      data: {
-        paypalSubscriptionId: resource.id,
-        membershipTier: tier,
-        membershipStatus: 'ACTIVE',
-        paymentGateway: 'PAYPAL',
-        subscriptionStartDate: new Date()
-      }
+    await Member.findByIdAndUpdate(customId, {
+      paypalSubscriptionId: resource.id,
+      membershipTier: tier,
+      membershipStatus: 'ACTIVE',
+      paymentGateway: 'PAYPAL',
+      subscriptionStartDate: new Date()
     });
   }
 }
 
 async function handlePayPalSubscriptionCancelled(resource: any) {
-  const member = await prisma.member.findUnique({
-    where: { paypalSubscriptionId: resource.id }
-  });
+  const member = await Member.findOne({ paypalSubscriptionId: resource.id });
 
   if (member) {
-    await prisma.member.update({
-      where: { id: member.id },
-      data: {
-        membershipStatus: 'CANCELED',
-        membershipTier: 'FREE',
-        subscriptionEndDate: new Date()
-      }
+    await Member.findByIdAndUpdate(member._id, {
+      membershipStatus: 'CANCELED',
+      membershipTier: 'FREE',
+      subscriptionEndDate: new Date()
     });
   }
 }
 
 async function handlePayPalSubscriptionSuspended(resource: any) {
-  const member = await prisma.member.findUnique({
-    where: { paypalSubscriptionId: resource.id }
-  });
+  const member = await Member.findOne({ paypalSubscriptionId: resource.id });
 
   if (member) {
-    await prisma.member.update({
-      where: { id: member.id },
-      data: {
-        membershipStatus: 'PAST_DUE'
-      }
+    await Member.findByIdAndUpdate(member._id, {
+      membershipStatus: 'PAST_DUE'
     });
   }
 }
@@ -373,22 +322,18 @@ async function handlePayPalSubscriptionSuspended(resource: any) {
 async function handlePayPalPaymentCompleted(resource: any) {
   const billingAgreementId = resource.billing_agreement_id;
 
-  const member = await prisma.member.findUnique({
-    where: { paypalSubscriptionId: billingAgreementId }
-  });
+  const member = await Member.findOne({ paypalSubscriptionId: billingAgreementId });
 
   if (member) {
-    await prisma.payment.create({
-      data: {
-        memberId: member.id,
-        gateway: 'PAYPAL',
-        gatewayPaymentId: resource.id,
-        amount: Math.round(parseFloat(resource.amount.total) * 100),
-        currency: resource.amount.currency.toLowerCase(),
-        status: 'succeeded',
-        description: 'Subscription payment',
-        metadata: JSON.stringify(resource)
-      }
+    await Payment.create({
+      memberId: member._id,
+      gateway: 'PAYPAL',
+      gatewayPaymentId: resource.id,
+      amount: Math.round(parseFloat(resource.amount.total) * 100),
+      currency: resource.amount.currency.toLowerCase(),
+      status: 'succeeded',
+      description: 'Subscription payment',
+      metadata: JSON.stringify(resource)
     });
   }
 }

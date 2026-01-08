@@ -50,6 +50,7 @@ import Categories from "./pages/admin/Categories";
 import Tags from "./pages/admin/Tags";
 import Media from "./pages/admin/Media";
 import Team from "./pages/admin/Team";
+import Members from "./pages/admin/Members";
 import Subscribers from "./pages/admin/Subscribers";
 import Analytics from "./pages/admin/Analytics";
 import AdminJobs from "./pages/admin/Jobs";
@@ -120,6 +121,7 @@ const App = () => (
                 <Route path="tags" element={<Tags />} />
                 <Route path="media" element={<Media />} />
                 <Route path="team" element={<Team />} />
+                <Route path="members" element={<Members />} />
                 <Route path="subscribers" element={<Subscribers />} />
                 <Route path="analytics" element={<Analytics />} />
               </Route>

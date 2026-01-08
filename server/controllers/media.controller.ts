@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Media } from '../models/mongodb.js';
+import mongoose from 'mongoose';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,27 +19,27 @@ export const uploadMedia = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    const media = await prisma.media.create({
-      data: {
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        mimeType: req.file.mimetype,
-        size: req.file.size,
-        url: `/uploads/${req.file.filename}`,
-        uploadedBy: req.user.userId
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
+    const media = await Media.create({
+      filename: req.file.filename,
+      originalName: req.file.originalname,
+      mimeType: req.file.mimetype,
+      size: req.file.size,
+      url: `/uploads/${req.file.filename}`,
+      uploadedBy: new mongoose.Types.ObjectId(req.user.userId)
     });
 
-    res.status(201).json({ media });
+    // Populate user info
+    const populatedMedia = await Media.findById(media._id)
+      .populate('uploadedBy', 'name email')
+      .lean();
+
+    res.status(201).json({ 
+      media: {
+        ...populatedMedia,
+        id: populatedMedia!._id.toString(),
+        user: populatedMedia!.uploadedBy
+      }
+    });
   } catch (error: any) {
     console.error('Upload media error:', error);
     res.status(500).json({ error: error.message });
@@ -57,39 +58,39 @@ export const getMediaList = async (req: AuthRequest, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const filter: any = {};
 
     if (type) {
       if (type === 'image') {
-        where.mimeType = { startsWith: 'image/' };
+        filter.mimeType = { $regex: /^image\// };
       } else if (type === 'video') {
-        where.mimeType = { startsWith: 'video/' };
+        filter.mimeType = { $regex: /^video\// };
       }
     }
 
     const [media, total] = await Promise.all([
-      prisma.media.findMany({
-        where,
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip,
-        take: limitNum
-      }),
-      prisma.media.count({ where })
+      Media.find(filter)
+        .populate('uploadedBy', 'name email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      Media.countDocuments(filter)
     ]);
 
+    // Transform media to include id and user fields
+    const transformedMedia = media.map((item: any) => ({
+      ...item,
+      id: item._id.toString(),
+      user: item.uploadedBy ? {
+        id: item.uploadedBy._id.toString(),
+        name: item.uploadedBy.name,
+        email: item.uploadedBy.email
+      } : null
+    }));
+
     res.json({
-      media,
+      media: transformedMedia,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -111,9 +112,11 @@ export const deleteMedia = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const media = await prisma.media.findUnique({
-      where: { id }
-    });
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid media ID' });
+    }
+
+    const media = await Media.findById(id);
 
     if (!media) {
       return res.status(404).json({ error: 'Media not found' });
@@ -122,7 +125,7 @@ export const deleteMedia = async (req: AuthRequest, res: Response) => {
     // Check permissions
     if (
       req.user.role !== 'ADMIN' &&
-      media.uploadedBy !== req.user.userId
+      media.uploadedBy.toString() !== req.user.userId
     ) {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
@@ -136,9 +139,7 @@ export const deleteMedia = async (req: AuthRequest, res: Response) => {
     }
 
     // Delete from database
-    await prisma.media.delete({
-      where: { id }
-    });
+    await Media.findByIdAndDelete(id);
 
     res.json({ message: 'Media deleted successfully' });
   } catch (error: any) {

@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { User, Post } from '../models/mongodb.js';
 
 export const getUsers = async (req: AuthRequest, res: Response) => {
   try {
@@ -11,39 +11,42 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const where: any = {};
+    const filter: any = {};
     if (role) {
-      where.role = role;
+      filter.role = role;
     }
 
     const [users, total] = await Promise.all([
-      prisma.user.findMany({
-        where,
-        select: {
-          id: true,
-          email: true,
-          name: true,
-          role: true,
-          avatar: true,
-          bio: true,
-          createdAt: true,
-          _count: {
-            select: {
-              posts: true
-            }
-          }
-        },
-        orderBy: {
-          createdAt: 'desc'
-        },
-        skip,
-        take: limitNum
-      }),
-      prisma.user.count({ where })
+      User.find(filter)
+        .select('-password')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean(),
+      User.countDocuments(filter)
     ]);
 
+    // Get post counts for each user
+    const usersWithCounts = await Promise.all(
+      users.map(async (user) => {
+        const postCount = await Post.countDocuments({ authorId: user._id });
+        return {
+          id: user._id.toString(),
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          avatar: user.avatar,
+          bio: user.bio,
+          createdAt: user.createdAt,
+          _count: {
+            posts: postCount
+          }
+        };
+      })
+    );
+
     res.json({
-      users,
+      users: usersWithCounts,
       pagination: {
         page: pageNum,
         limit: limitNum,
@@ -88,21 +91,27 @@ export const updateUser = async (req: AuthRequest, res: Response) => {
       updateData.password = await bcrypt.hash(password, 10);
     }
 
-    const user = await prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-        bio: true,
-        createdAt: true
-      }
-    });
+    const user = await User.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    ).select('-password');
 
-    res.json({ user });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const userData = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      bio: user.bio,
+      createdAt: user.createdAt
+    };
+
+    res.json({ user: userData });
   } catch (error: any) {
     console.error('Update user error:', error);
     res.status(500).json({ error: error.message });
@@ -117,9 +126,7 @@ export const deleteUser = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ error: 'Insufficient permissions' });
     }
 
-    await prisma.user.delete({
-      where: { id }
-    });
+    await User.findByIdAndDelete(id);
 
     res.json({ message: 'User deleted successfully' });
   } catch (error: any) {

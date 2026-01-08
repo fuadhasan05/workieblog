@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import bcrypt from 'bcryptjs';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { User } from '../models/mongodb.js';
 import { generateToken } from '../utils/jwt.js';
 
 export const register = async (req: AuthRequest, res: Response) => {
@@ -9,9 +9,7 @@ export const register = async (req: AuthRequest, res: Response) => {
     const { email, name, password, role } = req.body;
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email }
-    });
+    const existingUser = await User.findOne({ email });
 
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists' });
@@ -21,26 +19,25 @@ export const register = async (req: AuthRequest, res: Response) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        password: hashedPassword,
-        role: role || 'AUTHOR'
-      },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-        createdAt: true
-      }
+    const user = await User.create({
+      email,
+      name,
+      password: hashedPassword,
+      role: role || 'AUTHOR'
     });
+
+    const userData = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      createdAt: user.createdAt
+    };
 
     // Generate token
     const token = generateToken({
-      userId: user.id,
+      userId: user._id.toString(),
       email: user.email,
       role: user.role
     });
@@ -53,7 +50,7 @@ export const register = async (req: AuthRequest, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    res.status(201).json({ user, token });
+    res.status(201).json({ user: userData, token });
   } catch (error: any) {
     console.error('Register error:', error);
     res.status(500).json({ error: error.message });
@@ -65,9 +62,7 @@ export const login = async (req: AuthRequest, res: Response) => {
     const { email, password } = req.body;
 
     // Find user
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -82,7 +77,7 @@ export const login = async (req: AuthRequest, res: Response) => {
 
     // Generate token
     const token = generateToken({
-      userId: user.id,
+      userId: user._id.toString(),
       email: user.email,
       role: user.role
     });
@@ -95,9 +90,19 @@ export const login = async (req: AuthRequest, res: Response) => {
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
-    const { password: _, ...userWithoutPassword } = user;
+    const userData = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      bio: user.bio,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
+    };
 
-    res.json({ user: userWithoutPassword, token });
+    res.json({ user: userData, token });
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({ error: error.message });
@@ -115,24 +120,23 @@ export const me = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        avatar: true,
-        bio: true,
-        createdAt: true
-      }
-    });
+    const user = await User.findById(req.user.userId).select('-password');
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    res.json({ user });
+    const userData = {
+      id: user._id.toString(),
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+      bio: user.bio,
+      createdAt: user.createdAt
+    };
+
+    res.json({ user: userData });
   } catch (error: any) {
     console.error('Me error:', error);
     res.status(500).json({ error: error.message });

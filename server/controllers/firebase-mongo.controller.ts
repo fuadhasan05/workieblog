@@ -212,6 +212,64 @@ export class FirebaseMongoController {
   }
 
   /**
+   * Sync user directly from client data (for Firebase Auth signup)
+   */
+  static async syncUser(req: Request, res: Response) {
+    try {
+      const { uid, email, displayName, photoURL, emailVerified, membershipTier, provider } = req.body;
+      
+      if (!uid || !email) {
+        return res.status(400).json({ error: 'uid and email are required' });
+      }
+
+      console.log('[SyncUser] Syncing user to MongoDB:', email);
+      await connectToMongoDB();
+      
+      let user = await User.findOne({ firebaseUid: uid });
+      
+      if (!user) {
+        user = await User.findOne({ email: email.toLowerCase() });
+      }
+      
+      if (!user) {
+        console.log('[SyncUser] Creating new user in MongoDB...');
+        user = new User({
+          firebaseUid: uid,
+          email: email.toLowerCase(),
+          name: displayName || email.split('@')[0],
+          avatar: photoURL || null,
+          role: 'user',
+          isActive: true,
+        });
+      } else {
+        console.log('[SyncUser] Updating existing user in MongoDB...');
+        user.firebaseUid = uid;
+        user.name = displayName || user.name;
+        user.avatar = photoURL || user.avatar;
+      }
+      
+      const savedUser = await user.save();
+      console.log('[SyncUser] User saved successfully:', savedUser.email);
+      
+      res.status(200).json({
+        success: true,
+        message: 'User synced to MongoDB successfully',
+        user: {
+          id: savedUser._id,
+          firebaseUid: savedUser.firebaseUid,
+          email: savedUser.email,
+          name: savedUser.name,
+          avatar: savedUser.avatar,
+          role: savedUser.role,
+        }
+      });
+    } catch (error: any) {
+      console.error('[SyncUser] Error syncing user to MongoDB:', error);
+      res.status(500).json({ error: error.message || 'Failed to sync user' });
+    }
+  }
+
+  /**
    * Test both connections
    */
   static async testConnections(req: Request, res: Response) {

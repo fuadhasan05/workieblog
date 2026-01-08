@@ -19,8 +19,9 @@ router.get('/public', getPublicResources);
 router.get('/download/:id', downloadResource);
 
 // Admin routes (require authentication)
-router.get('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), getAllResources);
+// Stats route MUST come before /:id to avoid "stats" being treated as an ID
 router.get('/stats', authenticateToken, requireRole(['ADMIN', 'EDITOR']), getResourceStats);
+router.get('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), getAllResources);
 router.get('/:id', authenticateToken, requireRole(['ADMIN', 'EDITOR']), getResource);
 router.post('/', authenticateToken, requireRole(['ADMIN', 'EDITOR']), uploadResource.single('file'), createResource);
 router.put('/:id', authenticateToken, requireRole(['ADMIN', 'EDITOR']), uploadResource.single('file'), updateResource);

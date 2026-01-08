@@ -1,10 +1,10 @@
 import { Response } from 'express';
 import { AuthRequest } from '../middleware/auth.js';
-import prisma from '../utils/prisma.js';
+import { Member, Payment } from '../models/mongodb.js';
+import mongoose from 'mongoose';
 import stripe from '../utils/stripe.js';
 import paystack from '../utils/paystack.js';
 import paypalClient from '../utils/paypal.js';
-import axios from 'axios';
 
 // Pricing configuration for different gateways
 const PRICING = {
@@ -33,9 +33,7 @@ export const createStripeCheckout = async (req: AuthRequest, res: Response) => {
 
     const { tier, currency = 'usd' } = req.body;
 
-    const member = await prisma.member.findUnique({
-      where: { id: req.user.userId }
-    });
+    const member = await Member.findById(req.user.userId);
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
@@ -52,14 +50,11 @@ export const createStripeCheckout = async (req: AuthRequest, res: Response) => {
       const customer = await stripe.customers.create({
         email: member.email,
         name: member.name,
-        metadata: { memberId: member.id }
+        metadata: { memberId: member._id.toString() }
       });
 
       customerId = customer.id;
-      await prisma.member.update({
-        where: { id: member.id },
-        data: { stripeCustomerId: customerId }
-      });
+      await Member.findByIdAndUpdate(member._id, { stripeCustomerId: customerId });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -69,7 +64,7 @@ export const createStripeCheckout = async (req: AuthRequest, res: Response) => {
       line_items: [{ price: pricing.stripe, quantity: 1 }],
       success_url: `${process.env.FRONTEND_URL}/member/dashboard?success=true&gateway=stripe`,
       cancel_url: `${process.env.FRONTEND_URL}/pricing?canceled=true`,
-      metadata: { memberId: member.id, tier, gateway: 'STRIPE' }
+      metadata: { memberId: member._id.toString(), tier, gateway: 'STRIPE' }
     });
 
     res.json({ sessionId: session.id, url: session.url, gateway: 'stripe' });
@@ -90,9 +85,7 @@ export const createPaystackCheckout = async (req: AuthRequest, res: Response) =>
 
     const { tier, currency = 'ngn' } = req.body;
 
-    const member = await prisma.member.findUnique({
-      where: { id: req.user.userId }
-    });
+    const member = await Member.findById(req.user.userId);
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
@@ -110,10 +103,10 @@ export const createPaystackCheckout = async (req: AuthRequest, res: Response) =>
       currency: currency.toUpperCase(),
       callback_url: `${process.env.FRONTEND_URL}/member/dashboard?success=true&gateway=paystack`,
       metadata: {
-        memberId: member.id,
+        memberId: member._id.toString(),
         tier,
         gateway: 'PAYSTACK',
-        plan_code: pricing.paystack
+        plan_code: (pricing as any).paystack
       },
       channels: ['card', 'bank', 'ussd', 'mobile_money']
     });
@@ -144,9 +137,7 @@ export const createPayPalCheckout = async (req: AuthRequest, res: Response) => {
 
     const { tier, currency = 'usd' } = req.body;
 
-    const member = await prisma.member.findUnique({
-      where: { id: req.user.userId }
-    });
+    const member = await Member.findById(req.user.userId);
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
@@ -177,7 +168,7 @@ export const createPayPalCheckout = async (req: AuthRequest, res: Response) => {
           surname: member.name.split(' ').slice(1).join(' ') || 'User'
         }
       },
-      custom_id: member.id
+      custom_id: member._id.toString()
     };
 
     const { subscriptionsController } = paypalClient;
@@ -230,29 +221,24 @@ export const verifyPaystackPayment = async (req: AuthRequest, res: Response) => 
 
       if (metadata && metadata.memberId) {
         // Create subscription for the member
-        await prisma.member.update({
-          where: { id: metadata.memberId },
-          data: {
-            membershipTier: metadata.tier,
-            membershipStatus: 'ACTIVE',
-            paymentGateway: 'PAYSTACK',
-            paystackCustomerId: customer.customer_code,
-            subscriptionStartDate: new Date()
-          }
+        await Member.findByIdAndUpdate(metadata.memberId, {
+          membershipTier: metadata.tier,
+          membershipStatus: 'ACTIVE',
+          paymentGateway: 'PAYSTACK',
+          paystackCustomerId: customer.customer_code,
+          subscriptionStartDate: new Date()
         });
 
         // Record payment
-        await prisma.payment.create({
-          data: {
-            memberId: metadata.memberId,
-            gateway: 'PAYSTACK',
-            gatewayPaymentId: reference,
-            amount: response.data.amount,
-            currency: response.data.currency.toLowerCase(),
-            status: 'succeeded',
-            description: `${metadata.tier} subscription`,
-            metadata: JSON.stringify(response.data)
-          }
+        await Payment.create({
+          memberId: new mongoose.Types.ObjectId(metadata.memberId),
+          gateway: 'PAYSTACK',
+          gatewayPaymentId: reference,
+          amount: response.data.amount,
+          currency: response.data.currency.toLowerCase(),
+          status: 'succeeded',
+          description: `${metadata.tier} subscription`,
+          metadata: JSON.stringify(response.data)
         });
 
         res.json({ status: 'success', data: response.data });
@@ -282,25 +268,20 @@ export const verifyPayPalSubscription = async (req: AuthRequest, res: Response) 
       const customId = subscription.result.custom_id;
 
       if (customId) {
-        const member = await prisma.member.findUnique({
-          where: { id: customId }
-        });
+        const member = await Member.findById(customId);
 
         if (member) {
           // Determine tier from subscription plan
           const planId = subscription.result.plan_id;
           const tier = planId === process.env.PAYPAL_PREMIUM_PLAN_ID ? 'PREMIUM' : 'VIP';
 
-          await prisma.member.update({
-            where: { id: customId },
-            data: {
-              membershipTier: tier,
-              membershipStatus: 'ACTIVE',
-              paymentGateway: 'PAYPAL',
-              paypalSubscriptionId: subscriptionId,
-              paypalCustomerId: subscription.result.subscriber?.payer_id,
-              subscriptionStartDate: new Date()
-            }
+          await Member.findByIdAndUpdate(customId, {
+            membershipTier: tier,
+            membershipStatus: 'ACTIVE',
+            paymentGateway: 'PAYPAL',
+            paypalSubscriptionId: subscriptionId,
+            paypalCustomerId: subscription.result.subscriber?.payer_id,
+            subscriptionStartDate: new Date()
           });
 
           res.json({ status: 'success', subscription: subscription.result });

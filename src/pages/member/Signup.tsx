@@ -97,6 +97,28 @@ export default function Signup() {
         .then(() => console.log('[Signup] Firestore profile saved'))
         .catch((err) => console.warn('[Signup] Firestore write failed (non-blocking):', err));
 
+      // Sync to MongoDB Atlas
+      console.log('[Signup] Syncing to MongoDB...');
+      try {
+        const mongoResponse = await fetch('http://localhost:3001/api/firebase-mongo/sync-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            uid: user.uid,
+            email: user.email,
+            displayName: formData.name,
+            photoURL: user.photoURL || null,
+            emailVerified: user.emailVerified,
+            membershipTier: 'FREE',
+            provider: 'email'
+          })
+        });
+        const mongoResult = await mongoResponse.json();
+        console.log('[Signup] MongoDB sync result:', mongoResult);
+      } catch (mongoErr) {
+        console.error('[Signup] MongoDB sync failed:', mongoErr);
+      }
+
       console.log('[Signup] Registration complete, redirecting...');
       toast.success('Account created successfully!');
       
