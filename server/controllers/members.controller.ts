@@ -3,11 +3,10 @@ import bcrypt from 'bcryptjs';
 import { AuthRequest } from '../middleware/auth.js';
 import { Member } from '../models/mongodb.js';
 import { connectToMongoDB } from '../utils/mongodb.js';
-import { generateToken } from '../utils/jwt.js';
 
 export const registerMember = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, name, password } = req.body;
+    const { email, name, password, firebaseUid } = req.body;
 
     // Ensure MongoDB is connected
     await connectToMongoDB();
@@ -27,23 +26,9 @@ export const registerMember = async (req: AuthRequest, res: Response) => {
       email: email.toLowerCase(),
       name,
       password: hashedPassword,
+      firebaseUid: firebaseUid || null,
       membershipTier: 'FREE',
       emailVerified: false
-    });
-
-    // Generate token
-    const token = generateToken({
-      userId: member._id.toString(),
-      email: member.email,
-      role: 'MEMBER'
-    });
-
-    // Set cookie
-    res.cookie('member_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
     const memberResponse = {
@@ -57,7 +42,7 @@ export const registerMember = async (req: AuthRequest, res: Response) => {
       createdAt: member.createdAt
     };
 
-    res.status(201).json({ member: memberResponse, token });
+    res.status(201).json({ member: memberResponse });
   } catch (error: any) {
     console.error('Register member error:', error);
     res.status(500).json({ error: error.message });
@@ -66,39 +51,30 @@ export const registerMember = async (req: AuthRequest, res: Response) => {
 
 export const loginMember = async (req: AuthRequest, res: Response) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, firebaseUid } = req.body;
 
     // Ensure MongoDB is connected
     await connectToMongoDB();
 
-    // Find member
-    const member = await Member.findOne({ email: email.toLowerCase() });
+    // Find member by email or firebaseUid
+    const member = await Member.findOne({
+      $or: [
+        { email: email.toLowerCase() },
+        { firebaseUid: firebaseUid }
+      ]
+    });
 
     if (!member) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Check password
-    const isPasswordValid = await bcrypt.compare(password, member.password);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+    // If password provided, verify it (for traditional login)
+    if (password) {
+      const isPasswordValid = await bcrypt.compare(password, member.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({ error: 'Invalid credentials' });
+      }
     }
-
-    // Generate token
-    const token = generateToken({
-      userId: member._id.toString(),
-      email: member.email,
-      role: 'MEMBER'
-    });
-
-    // Set cookie
-    res.cookie('member_token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
 
     const memberResponse = {
       id: member._id.toString(),
@@ -113,7 +89,7 @@ export const loginMember = async (req: AuthRequest, res: Response) => {
       createdAt: member.createdAt
     };
 
-    res.json({ member: memberResponse, token });
+    res.json({ member: memberResponse });
   } catch (error: any) {
     console.error('Login member error:', error);
     res.status(500).json({ error: error.message });
@@ -121,20 +97,26 @@ export const loginMember = async (req: AuthRequest, res: Response) => {
 };
 
 export const logoutMember = async (req: AuthRequest, res: Response) => {
-  res.clearCookie('member_token');
   res.json({ message: 'Logged out successfully' });
 };
 
 export const getMemberProfile = async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const { email, firebaseUid } = req.body;
+
+    if (!email && !firebaseUid) {
+      return res.status(400).json({ error: 'Email or Firebase UID required' });
     }
 
     // Ensure MongoDB is connected
     await connectToMongoDB();
 
-    const member = await Member.findById(req.user.userId).select('-password');
+    const member = await Member.findOne({
+      $or: [
+        { email: email?.toLowerCase() },
+        { firebaseUid: firebaseUid }
+      ]
+    }).select('-password');
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });

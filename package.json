@@ -15,7 +15,9 @@
     "test:setup": "tsx server/scripts/test-setup.ts",
     "demo": "tsx server/scripts/quick-demo.ts",
     "seed:mongodb": "tsx server/scripts/seed-mongodb.ts",
-    "seed": "tsx server/scripts/seed-mongodb.ts"
+    "seed": "tsx server/scripts/seed-mongodb.ts",
+    "test:mongodb": "tsx server/scripts/test-mongodb-connections.ts",
+    "migrate:mongodb": "tsx server/scripts/migrate-mongodb.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

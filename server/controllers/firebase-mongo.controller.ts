@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { adminAuth, adminDb } from '../utils/firebase-admin.js';
 import { connectToMongoDB } from '../utils/mongodb.js';
-import { User, Article, Category } from '../models/mongodb.js';
+import { User, Article, Category, Member } from '../models/mongodb.js';
 import { FirebaseMongoDB_SyncService } from '../services/firebase-mongodb-sync.js';
 
 export class FirebaseMongoController {
@@ -222,50 +222,58 @@ export class FirebaseMongoController {
         return res.status(400).json({ error: 'uid and email are required' });
       }
 
-      console.log('[SyncUser] Syncing user to MongoDB:', email);
+      console.log('[SyncUser] Syncing member to MongoDB:', email);
       await connectToMongoDB();
       
-      let user = await User.findOne({ firebaseUid: uid });
+      // Check if member exists by firebaseUid or email
+      let member = await Member.findOne({ firebaseUid: uid });
       
-      if (!user) {
-        user = await User.findOne({ email: email.toLowerCase() });
+      if (!member) {
+        member = await Member.findOne({ email: email.toLowerCase() });
       }
       
-      if (!user) {
-        console.log('[SyncUser] Creating new user in MongoDB...');
-        user = new User({
+      if (!member) {
+        console.log('[SyncUser] Creating new member in MongoDB...');
+        member = new Member({
           firebaseUid: uid,
           email: email.toLowerCase(),
           name: displayName || email.split('@')[0],
           avatar: photoURL || null,
-          role: 'user',
+          password: '', // Not used for Firebase auth
+          membershipTier: membershipTier || 'FREE',
+          membershipStatus: 'ACTIVE',
+          emailVerified: emailVerified || false,
           isActive: true,
         });
       } else {
-        console.log('[SyncUser] Updating existing user in MongoDB...');
-        user.firebaseUid = uid;
-        user.name = displayName || user.name;
-        user.avatar = photoURL || user.avatar;
+        console.log('[SyncUser] Updating existing member in MongoDB...');
+        member.firebaseUid = uid;
+        member.name = displayName || member.name;
+        member.avatar = photoURL || member.avatar;
+        member.emailVerified = emailVerified || member.emailVerified;
+        member.lastLoginAt = new Date();
       }
       
-      const savedUser = await user.save();
-      console.log('[SyncUser] User saved successfully:', savedUser.email);
+      const savedMember = await member.save();
+      console.log('[SyncUser] Member saved successfully:', savedMember.email);
       
       res.status(200).json({
         success: true,
-        message: 'User synced to MongoDB successfully',
-        user: {
-          id: savedUser._id,
-          firebaseUid: savedUser.firebaseUid,
-          email: savedUser.email,
-          name: savedUser.name,
-          avatar: savedUser.avatar,
-          role: savedUser.role,
+        message: 'Member synced to MongoDB successfully',
+        member: {
+          id: savedMember._id,
+          firebaseUid: savedMember.firebaseUid,
+          email: savedMember.email,
+          name: savedMember.name,
+          avatar: savedMember.avatar,
+          membershipTier: savedMember.membershipTier,
+          membershipStatus: savedMember.membershipStatus,
+          emailVerified: savedMember.emailVerified,
         }
       });
     } catch (error: any) {
-      console.error('[SyncUser] Error syncing user to MongoDB:', error);
-      res.status(500).json({ error: error.message || 'Failed to sync user' });
+      console.error('[SyncUser] Error syncing member to MongoDB:', error);
+      res.status(500).json({ error: error.message || 'Failed to sync member' });
     }
   }
 

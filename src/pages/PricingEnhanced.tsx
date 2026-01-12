@@ -156,7 +156,8 @@ export default function Pricing() {
       const data = await apiClient.post('/payments/create-checkout', {
         tier: plan.tier,
         currency,
-        gateway
+        gateway,
+        memberEmail: member?.email
       });
 
       // Redirect based on gateway

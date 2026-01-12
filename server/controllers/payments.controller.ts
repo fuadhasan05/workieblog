@@ -27,13 +27,13 @@ const PRICING = {
 // ============================================================================
 export const createStripeCheckout = async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const { tier, currency = 'usd', memberEmail } = req.body;
+
+    if (!memberEmail) {
+      return res.status(400).json({ error: 'Member email required' });
     }
 
-    const { tier, currency = 'usd' } = req.body;
-
-    const member = await Member.findById(req.user.userId);
+    const member = await Member.findOne({ email: memberEmail.toLowerCase() });
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
@@ -79,13 +79,13 @@ export const createStripeCheckout = async (req: AuthRequest, res: Response) => {
 // ============================================================================
 export const createPaystackCheckout = async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const { tier, currency = 'ngn', memberEmail } = req.body;
+
+    if (!memberEmail) {
+      return res.status(400).json({ error: 'Member email required' });
     }
 
-    const { tier, currency = 'ngn' } = req.body;
-
-    const member = await Member.findById(req.user.userId);
+    const member = await Member.findOne({ email: memberEmail.toLowerCase() });
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });
@@ -131,13 +131,13 @@ export const createPaystackCheckout = async (req: AuthRequest, res: Response) =>
 // ============================================================================
 export const createPayPalCheckout = async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const { tier, currency = 'usd', memberEmail } = req.body;
+
+    if (!memberEmail) {
+      return res.status(400).json({ error: 'Member email required' });
     }
 
-    const { tier, currency = 'usd' } = req.body;
-
-    const member = await Member.findById(req.user.userId);
+    const member = await Member.findOne({ email: memberEmail.toLowerCase() });
 
     if (!member) {
       return res.status(404).json({ error: 'Member not found' });

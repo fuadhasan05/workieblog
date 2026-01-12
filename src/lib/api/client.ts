@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.PROD
 
 export const apiClient = {
   get: async (endpoint: string) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Authorization': token ? `Bearer ${token}` : ''
@@ -20,7 +20,7 @@ export const apiClient = {
   },
 
   post: async (endpoint: string, data?: any) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -39,7 +39,7 @@ export const apiClient = {
   },
 
   put: async (endpoint: string, data?: any) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
       headers: {
@@ -58,7 +58,7 @@ export const apiClient = {
   },
 
   delete: async (endpoint: string) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
       headers: {

@@ -5,13 +5,12 @@ import {
   verifyPayPalSubscription,
   getSupportedCurrencies
 } from '../controllers/payments.controller.js';
-import { authenticate } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/create-checkout', authenticate, createCheckout);
-router.get('/verify/paystack/:reference', authenticate, verifyPaystackPayment);
-router.get('/verify/paypal/:subscriptionId', authenticate, verifyPayPalSubscription);
+router.post('/create-checkout', createCheckout);
+router.get('/verify/paystack/:reference', verifyPaystackPayment);
+router.get('/verify/paypal/:subscriptionId', verifyPayPalSubscription);
 router.get('/supported-currencies', getSupportedCurrencies);
 
 export default router;
