@@ -1,4 +1,7 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Use environment variable with fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+
+console.log('API_BASE_URL:', API_BASE_URL); // Debug log
 
 export const apiClient = {
   get: async (endpoint: string) => {
