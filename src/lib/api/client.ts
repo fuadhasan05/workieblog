@@ -1,6 +1,5 @@
-// Production backend on Render
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-  (import.meta.env.PROD ? 'https://workieblog-api.onrender.com' : 'http://localhost:3001/api');
+// Always use Render backend
+const API_BASE_URL = 'https://workieblog-api.onrender.com';
 
 export const apiClient = {
   get: async (endpoint: string) => {
