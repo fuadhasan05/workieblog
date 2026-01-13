@@ -122,15 +122,16 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-app.listen(PORT, async () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
-  
-  // Initialize MongoDB connection
-  try {
-    await connectToMongoDB();
-    console.log('✅ MongoDB connected successfully');
-  } catch (error) {
-    console.error('❌ MongoDB connection failed:', error);
-  }
-});
+// Initialize MongoDB connection
+connectToMongoDB().catch(console.error);
+
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+    console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
+  });
+}
+
+// Export for Vercel serverless
+export default app;
