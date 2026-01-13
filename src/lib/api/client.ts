@@ -1,7 +1,6 @@
-// Use environment variable with fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
-
-console.log('API_BASE_URL:', API_BASE_URL); // Debug log
+// Production backend on Render
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? 'https://workieblog-api.onrender.com' : 'http://localhost:3001/api');
 
 export const apiClient = {
   get: async (endpoint: string) => {
