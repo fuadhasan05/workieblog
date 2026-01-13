@@ -8,5 +8,11 @@
         "distDir": "dist"
       }
     }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api"
+    }
   ]
 }

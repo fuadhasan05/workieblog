@@ -1,5 +1,5 @@
-// Always use Render backend
-const API_BASE_URL = 'https://workieblog-api.onrender.com';
+// Backend on same Vercel deployment
+const API_BASE_URL = '/api';
 
 export const apiClient = {
   get: async (endpoint: string) => {
