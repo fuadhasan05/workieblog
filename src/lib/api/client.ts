@@ -1,6 +1,4 @@
-const API_BASE_URL = import.meta.env.PROD 
-  ? '/api'  // Production: same domain
-  : 'http://localhost:3001/api';  // Development: explicit localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export const apiClient = {
   get: async (endpoint: string) => {
