@@ -1,5 +1,7 @@
-// Backend on same Vercel deployment
-const API_BASE_URL = '/api';
+// Backend on same Vercel deployment (production) or Render (development)
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'https://workieblog-api.onrender.com'  // Use Render in development
+  : '/api';  // Use Vercel serverless in production
 
 export const apiClient = {
   get: async (endpoint: string) => {
