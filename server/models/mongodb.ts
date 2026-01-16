@@ -33,12 +33,14 @@ const UserSchema: Schema = new Schema({
     type: String,
     unique: true,
     sparse: true,
+    index: true,
   },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   name: {
     type: String,
@@ -61,6 +63,7 @@ const UserSchema: Schema = new Schema({
     type: String,
     enum: RoleEnum,
     default: 'AUTHOR',
+    index: true,
   },
   isActive: {
     type: Boolean,
@@ -69,10 +72,6 @@ const UserSchema: Schema = new Schema({
 }, {
   timestamps: true,
 });
-
-UserSchema.index({ email: 1 });
-UserSchema.index({ firebaseUid: 1 });
-UserSchema.index({ role: 1 });
 
 export const User = mongoose.model<IUser>('User', UserSchema);
 
@@ -93,6 +92,7 @@ const CategorySchema: Schema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   name: {
     type: String,
@@ -111,8 +111,6 @@ const CategorySchema: Schema = new Schema({
   timestamps: true,
 });
 
-CategorySchema.index({ slug: 1 });
-
 export const Category = mongoose.model<ICategory>('Category', CategorySchema);
 
 // ============== TAG MODEL ==============
@@ -129,6 +127,7 @@ const TagSchema: Schema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   name: {
     type: String,
@@ -138,8 +137,6 @@ const TagSchema: Schema = new Schema({
 }, {
   timestamps: { createdAt: true, updatedAt: false },
 });
-
-TagSchema.index({ slug: 1 });
 
 export const Tag = mongoose.model<ITag>('Tag', TagSchema);
 
@@ -172,6 +169,7 @@ const PostSchema: Schema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   title: {
     type: String,
@@ -194,10 +192,12 @@ const PostSchema: Schema = new Schema({
     type: String,
     enum: PostStatusEnum,
     default: 'DRAFT',
+    index: true,
   },
   publishedAt: {
     type: Date,
     default: null,
+    index: -1,
   },
   scheduledFor: {
     type: Date,
@@ -219,6 +219,7 @@ const PostSchema: Schema = new Schema({
     type: String,
     enum: ContentAccessLevelEnum,
     default: 'FREE',
+    index: true,
   },
   views: {
     type: Number,
@@ -228,11 +229,13 @@ const PostSchema: Schema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true,
   },
   categoryId: {
     type: Schema.Types.ObjectId,
     ref: 'Category',
     required: true,
+    index: true,
   },
   tags: [{
     type: Schema.Types.ObjectId,
@@ -241,13 +244,6 @@ const PostSchema: Schema = new Schema({
 }, {
   timestamps: true,
 });
-
-PostSchema.index({ slug: 1 });
-PostSchema.index({ status: 1 });
-PostSchema.index({ publishedAt: -1 });
-PostSchema.index({ authorId: 1 });
-PostSchema.index({ categoryId: 1 });
-PostSchema.index({ accessLevel: 1 });
 
 export const Post = mongoose.model<IPost>('Post', PostSchema);
 
@@ -303,12 +299,11 @@ const MediaSchema: Schema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true,
   },
 }, {
   timestamps: { createdAt: true, updatedAt: false },
 });
-
-MediaSchema.index({ uploadedBy: 1 });
 
 export const Media = mongoose.model<IMedia>('Media', MediaSchema);
 
@@ -329,6 +324,7 @@ const SubscriberSchema: Schema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   name: {
     type: String,
@@ -338,6 +334,7 @@ const SubscriberSchema: Schema = new Schema({
     type: String,
     enum: SubscriptionTierEnum,
     default: 'FREE',
+    index: true,
   },
   subscribedAt: {
     type: Date,
@@ -350,12 +347,9 @@ const SubscriberSchema: Schema = new Schema({
   isActive: {
     type: Boolean,
     default: true,
+    index: true,
   },
 });
-
-SubscriberSchema.index({ email: 1 });
-SubscriberSchema.index({ tier: 1 });
-SubscriberSchema.index({ isActive: 1 });
 
 export const Subscriber = mongoose.model<ISubscriber>('Subscriber', SubscriberSchema);
 
@@ -376,10 +370,12 @@ const AnalyticsSchema: Schema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Post',
     default: null,
+    index: true,
   },
   event: {
     type: String,
     required: true,
+    index: true,
   },
   path: {
     type: String,
@@ -401,8 +397,7 @@ const AnalyticsSchema: Schema = new Schema({
   timestamps: { createdAt: true, updatedAt: false },
 });
 
-AnalyticsSchema.index({ postId: 1 });
-AnalyticsSchema.index({ event: 1 });
+// Compound index for createdAt descending
 AnalyticsSchema.index({ createdAt: -1 });
 
 export const Analytics = mongoose.model<IAnalytics>('Analytics', AnalyticsSchema);
@@ -429,6 +424,7 @@ const VideoSchema: Schema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   title: {
     type: String,
@@ -467,8 +463,6 @@ const VideoSchema: Schema = new Schema({
 }, {
   timestamps: true,
 });
-
-VideoSchema.index({ slug: 1 });
 
 export const Video = mongoose.model<IVideo>('Video', VideoSchema);
 
@@ -539,6 +533,7 @@ const JobSchema: Schema = new Schema({
     type: String,
     enum: JobStatusEnum,
     default: 'ACTIVE',
+    index: true,
   },
   expiresAt: {
     type: Date,
@@ -548,7 +543,6 @@ const JobSchema: Schema = new Schema({
   timestamps: true,
 });
 
-JobSchema.index({ status: 1 });
 JobSchema.index({ jobType: 1 });
 JobSchema.index({ remote: 1 });
 
@@ -586,6 +580,7 @@ const MemberSchema: Schema = new Schema({
     required: true,
     unique: true,
     lowercase: true,
+    index: true,
   },
   name: {
     type: String,
@@ -608,6 +603,7 @@ const MemberSchema: Schema = new Schema({
     type: String,
     enum: SubscriptionTierEnum,
     default: 'FREE',
+    index: true,
   },
   membershipStatus: {
     type: String,
@@ -623,6 +619,7 @@ const MemberSchema: Schema = new Schema({
     type: String,
     unique: true,
     sparse: true,
+    index: true,
   },
   stripeSubscriptionId: {
     type: String,
@@ -633,6 +630,7 @@ const MemberSchema: Schema = new Schema({
     type: String,
     unique: true,
     sparse: true,
+    index: true,
   },
   paystackSubscriptionCode: {
     type: String,
@@ -643,6 +641,7 @@ const MemberSchema: Schema = new Schema({
     type: String,
     unique: true,
     sparse: true,
+    index: true,
   },
   paypalCustomerId: {
     type: String,
@@ -660,6 +659,7 @@ const MemberSchema: Schema = new Schema({
     type: String,
     unique: true,
     sparse: true,
+    index: true,
   },
   isActive: {
     type: Boolean,
@@ -672,13 +672,6 @@ const MemberSchema: Schema = new Schema({
 }, {
   timestamps: true,
 });
-
-MemberSchema.index({ email: 1 });
-MemberSchema.index({ stripeCustomerId: 1 });
-MemberSchema.index({ paystackCustomerId: 1 });
-MemberSchema.index({ paypalSubscriptionId: 1 });
-MemberSchema.index({ membershipTier: 1 });
-MemberSchema.index({ firebaseUid: 1 });
 
 export const Member = mongoose.model<IMember>('Member', MemberSchema);
 
@@ -732,16 +725,19 @@ const PaymentSchema: Schema = new Schema({
     type: Schema.Types.ObjectId,
     ref: 'Member',
     required: true,
+    index: true,
   },
   gateway: {
     type: String,
     enum: PaymentGatewayEnum,
     required: true,
+    index: true,
   },
   gatewayPaymentId: {
     type: String,
     required: true,
     unique: true,
+    index: true,
   },
   amount: {
     type: Number,
@@ -766,10 +762,6 @@ const PaymentSchema: Schema = new Schema({
 }, {
   timestamps: { createdAt: true, updatedAt: false },
 });
-
-PaymentSchema.index({ memberId: 1 });
-PaymentSchema.index({ gatewayPaymentId: 1 });
-PaymentSchema.index({ gateway: 1 });
 
 export const Payment = mongoose.model<IPayment>('Payment', PaymentSchema);
 
@@ -804,6 +796,7 @@ const ResourceSchema: Schema = new Schema({
     type: String,
     enum: ResourceCategoryEnum,
     default: 'CAREER_TOOLS',
+    index: true,
   },
   iconType: {
     type: String,
@@ -834,13 +827,11 @@ const ResourceSchema: Schema = new Schema({
     type: String,
     enum: ResourceStatusEnum,
     default: 'DRAFT',
+    index: true,
   },
 }, {
   timestamps: true,
 });
-
-ResourceSchema.index({ status: 1 });
-ResourceSchema.index({ category: 1 });
 
 export const Resource = mongoose.model<IResource>('Resource', ResourceSchema);
 
