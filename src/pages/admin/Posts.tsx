@@ -45,10 +45,14 @@ export default function Posts() {
       if (search) params.append('search', search);
       if (statusFilter !== 'all') params.append('status', statusFilter);
 
+      console.log('Fetching posts with params:', params.toString());
       const data = await apiClient.get(`/posts?${params}`);
-      setPosts(data.posts);
-      setPagination(data.pagination);
+      console.log('Posts response:', data);
+      console.log('Number of posts:', data.posts?.length);
+      setPosts(data.posts || []);
+      setPagination(data.pagination || { page: 1, totalPages: 1 });
     } catch (error) {
+      console.error('Load posts error:', error);
       toast.error('Failed to load posts');
     } finally {
       setIsLoading(false);
@@ -130,36 +134,50 @@ export default function Posts() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {posts.map((post) => (
-              <TableRow key={post.id}>
-                <TableCell className="font-medium">{post.title}</TableCell>
-                <TableCell>{post.author.name}</TableCell>
-                <TableCell>{post.category.name}</TableCell>
-                <TableCell>{getStatusBadge(post.status)}</TableCell>
-                <TableCell>
-                  {post.publishedAt
-                    ? format(new Date(post.publishedAt), 'MMM d, yyyy')
-                    : '-'}
-                </TableCell>
-                <TableCell>{post.views}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Link to={`/admin/posts/${post.id}/edit`}>
-                      <Button variant="ghost" size="sm">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                    </Link>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(post.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </div>
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  Loading...
                 </TableCell>
               </TableRow>
-            ))}
+            ) : posts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center py-8">
+                  No posts found
+                </TableCell>
+              </TableRow>
+            ) : (
+              posts.map((post) => (
+                <TableRow key={post.id}>
+                  <TableCell className="font-medium">{post.title}</TableCell>
+                  <TableCell>{post.author?.name || 'Unknown'}</TableCell>
+                  <TableCell>{post.category?.name || 'Uncategorized'}</TableCell>
+                  <TableCell>{getStatusBadge(post.status)}</TableCell>
+                  <TableCell>
+                    {post.publishedAt
+                      ? format(new Date(post.publishedAt), 'MMM d, yyyy')
+                      : '-'}
+                  </TableCell>
+                  <TableCell>{post.views || 0}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Link to={`/admin/posts/${post.id}/edit`}>
+                        <Button variant="ghost" size="sm">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(post.id)}
+                      >
+                        <Trash2 className="w-4 h-4 text-red-600" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </div>

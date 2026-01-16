@@ -234,7 +234,7 @@ const PostSchema: Schema = new Schema({
   categoryId: {
     type: Schema.Types.ObjectId,
     ref: 'Category',
-    required: true,
+    required: false,
     index: true,
   },
   tags: [{

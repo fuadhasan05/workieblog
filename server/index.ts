@@ -141,13 +141,19 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // Initialize MongoDB connection
-connectToMongoDB().catch((error) => {
-  console.error('MongoDB connection error:', error);
-});
+connectToMongoDB()
+  .then(() => {
+    console.log('✅ MongoDB connection initialized successfully');
+  })
+  .catch((error) => {
+    console.error('❌ MongoDB connection error:', error);
+    console.error('❌ Server will continue but database operations will fail');
+  });
 
 // Start server on Render or locally
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
   console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🔗 MongoDB URI: ${process.env.MONGODB_URI?.substring(0, 30)}...`);
 });

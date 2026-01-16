@@ -45,6 +45,9 @@ const formatPost = (post: any, author?: any, category?: any, tags?: any[]) => ({
 
 export const getPosts = async (req: AuthRequest, res: Response) => {
   try {
+    console.log('=== GET POSTS REQUEST ===');
+    console.log('Query params:', req.query);
+    
     const {
       page = '1',
       limit = '10',
@@ -108,6 +111,12 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    console.log('MongoDB Filter:', JSON.stringify(filter, null, 2));
+
+    // First check total count without filter
+    const totalInDB = await Post.countDocuments({});
+    console.log(`Total posts in database: ${totalInDB}`);
+
     const [posts, total] = await Promise.all([
       Post.find(filter)
         .sort({ createdAt: -1 })
@@ -117,16 +126,27 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
       Post.countDocuments(filter)
     ]);
 
+    console.log(`Found ${posts.length} posts out of ${total} matching filter`);
+    if (posts.length > 0) {
+      console.log('Sample post:', JSON.stringify(posts[0], null, 2));
+    }
+
     // Fetch related data
-    const authorIds = [...new Set(posts.map(p => p.authorId))];
-    const categoryIds = [...new Set(posts.map(p => p.categoryId))];
+    const authorIds = [...new Set(posts.map(p => p.authorId).filter(Boolean))];
+    const categoryIds = [...new Set(posts.map(p => p.categoryId).filter(Boolean))];
     const tagIds = [...new Set(posts.flatMap(p => p.tags || []))];
 
+    console.log('Fetching relations - Authors:', authorIds.length, 'Categories:', categoryIds.length, 'Tags:', tagIds.length);
+
     const [authors, categories, allTags] = await Promise.all([
-      User.find({ _id: { $in: authorIds } }).select('-password').lean(),
-      Category.find({ _id: { $in: categoryIds } }).lean(),
-      Tag.find({ _id: { $in: tagIds } }).lean()
+      authorIds.length > 0 ? User.find({ _id: { $in: authorIds } }).select('-password').lean() : [],
+      categoryIds.length > 0 ? Category.find({ _id: { $in: categoryIds } }).lean() : [],
+      tagIds.length > 0 ? Tag.find({ _id: { $in: tagIds } }).lean() : []
     ]);
+
+    console.log('Fetched authors:', authors.length);
+    console.log('Fetched categories:', categories.length);
+    console.log('Fetched tags:', allTags.length);
 
     const authorMap = new Map(authors.map(a => [a._id.toString(), a]));
     const categoryMap = new Map(categories.map(c => [c._id.toString(), c]));
@@ -138,6 +158,8 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
       const postTags = (post.tags || []).map((tagId: any) => tagMap.get(tagId.toString())).filter(Boolean);
       return formatPost(post, author, category, postTags);
     });
+
+    console.log('Returning formatted posts:', formattedPosts.length);
 
     res.json({
       posts: formattedPosts,
@@ -185,6 +207,10 @@ export const getPost = async (req: AuthRequest, res: Response) => {
 
 export const createPost = async (req: AuthRequest, res: Response) => {
   try {
+    console.log('=== CREATE POST REQUEST ===');
+    console.log('User:', req.user);
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+    
     const {
       title,
       slug,
@@ -202,6 +228,7 @@ export const createPost = async (req: AuthRequest, res: Response) => {
     } = req.body;
 
     if (!req.user) {
+      console.log('ERROR: Not authenticated');
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -209,11 +236,12 @@ export const createPost = async (req: AuthRequest, res: Response) => {
     const existingPost = await Post.findOne({ slug });
 
     if (existingPost) {
+      console.log('ERROR: Slug already exists:', slug);
       return res.status(400).json({ error: 'Slug already exists' });
     }
 
-    // Create post
-    const post = await Post.create({
+    // Create post data
+    const postData: any = {
       title,
       slug,
       excerpt,
@@ -228,7 +256,14 @@ export const createPost = async (req: AuthRequest, res: Response) => {
       isPremium: isPremium || false,
       readTime,
       tags: tagIds ? tagIds.map((id: string) => new mongoose.Types.ObjectId(id)) : []
-    });
+    };
+
+    console.log('Post data to save:', JSON.stringify(postData, null, 2));
+
+    // Create post
+    const post = await Post.create(postData);
+    
+    console.log('Post created successfully:', post._id);
 
     // Fetch related data
     const [author, category, tags] = await Promise.all([
@@ -237,9 +272,14 @@ export const createPost = async (req: AuthRequest, res: Response) => {
       post.tags?.length ? Tag.find({ _id: { $in: post.tags } }).lean() : []
     ]);
 
+    console.log('Post with relations fetched');
+
     res.status(201).json({ post: formatPost(post.toObject(), author, category, tags) });
   } catch (error: any) {
-    console.error('Create post error:', error);
+    console.error('=== CREATE POST ERROR ===');
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    console.error('Error name:', error.name);
     res.status(500).json({ error: error.message });
   }
 };
