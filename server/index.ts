@@ -49,21 +49,33 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Allow specific production domains (add your domains here)
+    // Allow Vercel preview and production domains
+    if (origin.includes('vercel.app') || origin.includes('workiehq.com')) {
+      return callback(null, true);
+    }
+    
+    // Allow specific production domains
     const allowedOrigins = [
       'http://localhost:5173',
       'http://localhost:3000', 
       'http://localhost:3001',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
+      'http://127.0.0.1:3001',
+      'https://workieblog.vercel.app',
+      'https://workiehq.com'
     ];
     
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      // In production, allow all Vercel domains
+      if (process.env.NODE_ENV === 'production') {
+        callback(null, true);
+      } else {
+        console.log('CORS blocked origin:', origin);
+        callback(new Error('Not allowed by CORS'));
+      }
     }
   },
   credentials: true,
@@ -108,22 +120,31 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server is running' });
 });
 
-// Backend API only - frontend served separately from Hostinger
-// No static file serving needed
+// 404 handler - must be before error handler
+app.use((req, res, next) => {
+  res.status(404).json({ 
+    error: 'Not Found',
+    message: `Cannot ${req.method} ${req.path}`
+  });
+});
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
+  console.error('Error:', err.message);
+  console.error('Stack:', err.stack);
+  
+  // Ensure we always send JSON
   res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal Server Error',
-      status: err.status || 500
-    }
+    error: err.message || 'Internal Server Error',
+    status: err.status || 500
   });
 });
 
 // Initialize MongoDB connection
-connectToMongoDB().catch(console.error);
+connectToMongoDB().catch((error) => {
+  console.error('MongoDB connection error:', error);
+  // In serverless, connection might be established on first request
+});
 
 // Start server only if not in serverless environment (Vercel)
 if (process.env.VERCEL !== '1') {
