@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { cn } from '@/lib/utils';
-import { getFeaturedArticles, Article } from '@/data/mockData';
+import { Article } from '@/data/mockData';
 import { HeroCarouselSkeleton } from '@/components/ui/ArticleCardSkeleton';
 import { ImageWithLoader } from '@/components/ui/ImageWithLoader';
 import { formatDistanceToNow } from 'date-fns';
+import { apiClient } from '@/lib/api/client';
 
 const categoryStyles: Record<string, string> = {
   career: 'bg-category-career',
@@ -27,13 +28,21 @@ export function HeroCarousel() {
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true });
 
   useEffect(() => {
-    // Simulate loading
-    const timer = setTimeout(() => {
-      setArticles(getFeaturedArticles());
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    loadFeaturedArticles();
   }, []);
+
+  const loadFeaturedArticles = async () => {
+    try {
+      setIsLoading(true);
+      const data = await apiClient.get('/posts?status=PUBLISHED&isFeatured=true&limit=5');
+      setArticles(data.posts || []);
+    } catch (error) {
+      console.error('Failed to load featured articles:', error);
+      setArticles([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi]);
   const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi]);

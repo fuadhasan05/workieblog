@@ -49,8 +49,10 @@ export default function Posts() {
       const data = await apiClient.get(`/posts?${params}`);
       console.log('Posts response:', data);
       console.log('Number of posts:', data.posts?.length);
+      console.log('First post sample:', data.posts?.[0]);
       setPosts(data.posts || []);
       setPagination(data.pagination || { page: 1, totalPages: 1 });
+      console.log('State updated - posts.length:', data.posts?.length);
     } catch (error) {
       console.error('Load posts error:', error);
       toast.error('Failed to load posts');
@@ -143,11 +145,13 @@ export default function Posts() {
             ) : posts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8">
-                  No posts found
+                  No posts found (posts array length: {posts.length})
                 </TableCell>
               </TableRow>
             ) : (
-              posts.map((post) => (
+              posts.map((post) => {
+                console.log('Rendering post:', post.id, post.title);
+                return (
                 <TableRow key={post.id}>
                   <TableCell className="font-medium">{post.title}</TableCell>
                   <TableCell>{post.author?.name || 'Unknown'}</TableCell>
@@ -176,7 +180,8 @@ export default function Posts() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+              );
+              })
             )}
           </TableBody>
         </Table>

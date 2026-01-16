@@ -1,10 +1,55 @@
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-import { getLatestArticles } from '@/data/mockData';
 import { ArticleCard } from '@/components/articles/ArticleCard';
+import { apiClient } from '@/lib/api/client';
 
 export function LatestArticles() {
-  const latestArticles = getLatestArticles(6);
+  const [latestArticles, setLatestArticles] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    loadLatestArticles();
+  }, []);
+
+  const loadLatestArticles = async () => {
+    try {
+      setIsLoading(true);
+      const data = await apiClient.get('/posts?limit=6&status=PUBLISHED');
+      setLatestArticles(data.posts || []);
+    } catch (error) {
+      console.error('Failed to load latest articles:', error);
+      setLatestArticles([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <section className="mb-12">
+        <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-gradient-to-r from-primary to-accent">
+          <h2 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
+            <span className="text-gradient">Latest Stories</span>
+          </h2>
+        </div>
+        <div className="text-center py-12">Loading articles...</div>
+      </section>
+    );
+  }
+
+  if (latestArticles.length === 0) {
+    return (
+      <section className="mb-12">
+        <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-gradient-to-r from-primary to-accent">
+          <h2 className="font-display text-2xl md:text-3xl font-bold uppercase tracking-tight">
+            <span className="text-gradient">Latest Stories</span>
+          </h2>
+        </div>
+        <div className="text-center py-12">No articles available yet.</div>
+      </section>
+    );
+  }
 
   return (
     <section className="mb-12">

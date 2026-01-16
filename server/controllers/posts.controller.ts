@@ -57,7 +57,8 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
       search,
       startDate,
       endDate,
-      tags
+      tags,
+      isFeatured
     } = req.query;
 
     const pageNum = parseInt(page as string);
@@ -68,6 +69,10 @@ export const getPosts = async (req: AuthRequest, res: Response) => {
 
     if (status) {
       filter.status = status;
+    }
+
+    if (isFeatured !== undefined) {
+      filter.isFeatured = isFeatured === 'true';
     }
 
     if (authorId) {
