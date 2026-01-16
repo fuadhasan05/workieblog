@@ -140,11 +140,12 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Initialize MongoDB connection
-connectToMongoDB().catch((error) => {
-  console.error('MongoDB connection error:', error);
-  // In serverless, connection might be established on first request
-});
+// Initialize MongoDB connection (only for non-serverless)
+if (process.env.VERCEL !== '1') {
+  connectToMongoDB().catch((error) => {
+    console.error('MongoDB connection error:', error);
+  });
+}
 
 // Start server only if not in serverless environment (Vercel)
 if (process.env.VERCEL !== '1') {
