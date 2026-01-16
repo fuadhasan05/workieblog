@@ -12,10 +12,18 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Eye } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function PostEditor() {
@@ -43,6 +51,15 @@ export default function PostEditor() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // New category dialog state
+  const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    slug: '',
+    description: '',
+    color: '#8b5cf6'
+  });
 
   useEffect(() => {
     loadCategories();
@@ -141,6 +158,33 @@ export default function PostEditor() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategory.name || !newCategory.slug) {
+      toast.error('Please fill in category name and slug');
+      return;
+    }
+
+    try {
+      const data = await apiClient.post('/categories', newCategory);
+      toast.success('Category created successfully');
+      setCategories([...categories, data.category]);
+      setFormData({ ...formData, categoryId: data.category.id });
+      setIsAddCategoryOpen(false);
+      setNewCategory({ name: '', slug: '', description: '', color: '#8b5cf6' });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create category');
+    }
+  };
+
+  const generateCategorySlug = (name: string) => {
+    return name
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
   };
 
   if (isLoading) {
@@ -263,7 +307,97 @@ export default function PostEditor() {
             )}
 
             <div>
-              <Label htmlFor="category">Category *</Label>
+              <div className="flex items-center justify-between mb-2">
+                <Label htmlFor="category">Category *</Label>
+                <Dialog open={isAddCategoryOpen} onOpenChange={setIsAddCategoryOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0 text-pink-600 hover:text-pink-700"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add New
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Add New Category</DialogTitle>
+                      <DialogDescription>
+                        Create a new category for your posts
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div>
+                        <Label htmlFor="category-name">Name *</Label>
+                        <Input
+                          id="category-name"
+                          value={newCategory.name}
+                          onChange={(e) => {
+                            const name = e.target.value;
+                            setNewCategory({
+                              ...newCategory,
+                              name,
+                              slug: generateCategorySlug(name)
+                            });
+                          }}
+                          placeholder="e.g., Career Advice"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="category-slug">Slug *</Label>
+                        <Input
+                          id="category-slug"
+                          value={newCategory.slug}
+                          onChange={(e) => setNewCategory({ ...newCategory, slug: e.target.value })}
+                          placeholder="e.g., career-advice"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="category-description">Description</Label>
+                        <Textarea
+                          id="category-description"
+                          value={newCategory.description}
+                          onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
+                          placeholder="Brief description of the category"
+                          rows={3}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="category-color">Color</Label>
+                        <div className="flex gap-2">
+                          <Input
+                            id="category-color"
+                            type="color"
+                            value={newCategory.color}
+                            onChange={(e) => setNewCategory({ ...newCategory, color: e.target.value })}
+                            className="w-20 h-10"
+                          />
+                          <Input
+                            value={newCategory.color}
+                            onChange={(e) => setNewCategory({ ...newCategory, color: e.target.value })}
+                            placeholder="#8b5cf6"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsAddCategoryOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleAddCategory}
+                          className="bg-pink-600 hover:bg-pink-700"
+                        >
+                          Add Category
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
               <Select
                 value={formData.categoryId}
                 onValueChange={(value) => setFormData({ ...formData, categoryId: value })}

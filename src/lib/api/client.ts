@@ -1,11 +1,14 @@
-// Backend on same Vercel deployment (production) or Render (development)
+// Backend configuration - can use localhost or remote backend
+// Set VITE_USE_LOCAL_API=true in .env to use localhost, otherwise uses Render
 const API_BASE_URL = import.meta.env.DEV 
-  ? 'https://workieblog-api.onrender.com'  // Use Render in development
-  : '/api';  // Use Vercel serverless in production
+  ? (import.meta.env.VITE_USE_LOCAL_API === 'true' 
+      ? 'http://localhost:3001/api'  // Local backend
+      : 'https://workieblog-api.onrender.com/api')  // Remote backend
+  : '/api';  // Production uses Vercel serverless
 
 export const apiClient = {
   get: async (endpoint: string) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       headers: {
         'Authorization': token ? `Bearer ${token}` : ''
@@ -20,8 +23,8 @@ export const apiClient = {
     return response.json();
   },
 
-  post: async (endpoint: string, data?: any) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
+  post: async (endpoint: string, data?: unknown) => {
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
       headers: {
@@ -39,8 +42,8 @@ export const apiClient = {
     return response.json();
   },
 
-  put: async (endpoint: string, data?: any) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
+  put: async (endpoint: string, data?: unknown) => {
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'PUT',
       headers: {
@@ -59,7 +62,7 @@ export const apiClient = {
   },
 
   delete: async (endpoint: string) => {
-    const token = localStorage.getItem('token') || localStorage.getItem('member_token');
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'DELETE',
       headers: {

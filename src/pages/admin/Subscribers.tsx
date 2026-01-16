@@ -22,6 +22,11 @@ import { Search, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'https://workieblog-api.onrender.com'
+  : '/api';
+
 export default function Subscribers() {
   const [subscribers, setSubscribers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +67,7 @@ export default function Subscribers() {
       if (tierFilter !== 'all') params.append('tier', tierFilter);
       if (activeFilter !== 'all') params.append('isActive', activeFilter);
 
-      const response = await fetch(`http://localhost:3001/api/subscribers/export?${params}`, {
+      const response = await fetch(`${API_BASE_URL}/subscribers/export?${params}`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }

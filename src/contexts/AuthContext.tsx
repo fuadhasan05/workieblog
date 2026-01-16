@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 interface User {
   id: string;
@@ -39,20 +40,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedToken = localStorage.getItem('token');
       if (storedToken) {
         try {
-          const response = await fetch('http://localhost:3001/api/auth/me', {
-            headers: {
-              'Authorization': `Bearer ${storedToken}`
-            }
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setUser(data.user);
-            setToken(storedToken);
-          } else {
-            localStorage.removeItem('token');
-            setToken(null);
-          }
+          const data = await apiClient.get('/auth/me');
+          setUser(data.user);
+          setToken(storedToken);
         } catch (error) {
           console.error('Auth check error:', error);
           localStorage.removeItem('token');
@@ -66,20 +56,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await fetch('http://localhost:3001/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password })
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
-    }
-
-    const data = await response.json();
+    const data = await apiClient.post('/auth/login', { email, password });
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('token', data.token);
@@ -87,12 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      await fetch('http://localhost:3001/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
+      await apiClient.post('/auth/logout');
     } catch (error) {
       console.error('Logout error:', error);
     }

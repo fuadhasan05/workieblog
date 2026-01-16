@@ -12,6 +12,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 
+// Get API base URL from environment
+const API_BASE_URL = import.meta.env.DEV 
+  ? 'https://workieblog-api.onrender.com'
+  : '/api';
+
 export default function Media() {
   const [media, setMedia] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,7 +81,8 @@ export default function Media() {
   };
 
   const copyUrl = (url: string) => {
-    navigator.clipboard.writeText(`http://localhost:3001${url}`);
+    const fullUrl = `${API_BASE_URL}${url}`;
+    navigator.clipboard.writeText(fullUrl);
     toast.success('URL copied to clipboard');
   };
 
@@ -130,13 +136,13 @@ export default function Media() {
             <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
               {item.mimeType.startsWith('image/') ? (
                 <img
-                  src={`http://localhost:3001${item.url}`}
+                  src={`${API_BASE_URL}${item.url}`}
                   alt={item.originalName}
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <video
-                  src={`http://localhost:3001${item.url}`}
+                  src={`${API_BASE_URL}${item.url}`}
                   className="w-full h-full object-cover"
                 />
               )}
