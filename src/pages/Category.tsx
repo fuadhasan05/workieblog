@@ -1,9 +1,11 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { getArticlesByCategory, categories, Category as CategoryType } from '@/data/mockData';
+import { Category as CategoryType } from '@/data/mockData';
 import { ArticleCard } from '@/components/articles/ArticleCard';
 import { Button } from '@/components/ui/button';
+import { apiClient } from '@/lib/api/client';
 
 // Import category header images
 import categoryCareer from '@/assets/category-career.png';
@@ -38,7 +40,44 @@ const categoryGradients: Record<CategoryType, string> = {
 
 export default function Category() {
   const { slug } = useParams();
-  const category = categories.find(c => c.slug === slug);
+  const [category, setCategory] = useState<any>(null);
+  const [articles, setArticles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadCategoryData();
+  }, [slug]);
+
+  const loadCategoryData = async () => {
+    try {
+      setLoading(true);
+      const [categoriesData, postsData] = await Promise.all([
+        apiClient.get('/categories'),
+        apiClient.get(`/posts?category=${slug}&status=PUBLISHED`)
+      ]);
+      
+      const foundCategory = categoriesData.categories?.find((c: any) => c.slug === slug);
+      setCategory(foundCategory);
+      setArticles(postsData.posts || []);
+    } catch (error) {
+      console.error('Failed to load category:', error);
+      setCategory(null);
+      setArticles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </Layout>
+    );
+  }
   
   if (!category) {
     return (

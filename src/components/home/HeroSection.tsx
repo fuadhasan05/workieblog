@@ -1,12 +1,32 @@
-import { getFeaturedArticles } from '@/data/mockData';
+import { useState, useEffect } from 'react';
 import { ArticleCard } from '@/components/articles/ArticleCard';
+import { apiClient } from '@/lib/api/client';
 
 export function HeroSection() {
-  const featuredArticles = getFeaturedArticles();
+  const [featuredArticles, setFeaturedArticles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadFeaturedArticles();
+  }, []);
+
+  const loadFeaturedArticles = async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.get('/posts?isFeatured=true&status=PUBLISHED&limit=2');
+      setFeaturedArticles(data.posts || []);
+    } catch (error) {
+      console.error('Failed to load featured articles:', error);
+      setFeaturedArticles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const mainFeatured = featuredArticles[0];
   const secondaryFeatured = featuredArticles[1];
 
-  if (!mainFeatured) return null;
+  if (loading || !mainFeatured) return null;
 
   return (
     <section className="mb-12">

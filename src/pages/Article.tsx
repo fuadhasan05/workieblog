@@ -8,7 +8,8 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
 import { useState, useEffect } from 'react';
-import { getArticleBySlug, getRelatedArticles, tags as allTags, Article as ArticleType } from '@/data/mockData';
+import { apiClient } from '@/lib/api/client';
+import { Article as ArticleType } from '@/data/mockData';
 
 const categoryStyles: Record<string, string> = {
   career: 'bg-purple-100 text-purple-800',
@@ -27,22 +28,28 @@ export default function Article() {
   const [isSubscribed] = useState(false);
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      if (slug) {
-        const foundArticle = getArticleBySlug(slug);
-        setArticle(foundArticle);
-        
-        if (foundArticle) {
-          const related = getRelatedArticles(slug, foundArticle.category, 3);
-          setRelatedArticles(related);
-        }
-      }
-      setLoading(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
+    loadArticle();
   }, [slug]);
+
+  const loadArticle = async () => {
+    try {
+      setLoading(true);
+      if (!slug) return;
+
+      const data = await apiClient.get(`/posts/${slug}`);
+      setArticle(data.post);
+
+      if (data.post?.category?.slug) {
+        const relatedData = await apiClient.get(`/posts?category=${data.post.category.slug}&limit=3&status=PUBLISHED`);
+        setRelatedArticles(relatedData.posts.filter((p: any) => p.id !== data.post.id).slice(0, 3));
+      }
+    } catch (error) {
+      console.error('Failed to load article:', error);
+      setArticle(undefined);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -85,9 +92,7 @@ export default function Article() {
     : article.content;
 
   // Get tag objects for display
-  const articleTags = article.tags?.map(tagSlug => 
-    allTags.find(t => t.slug === tagSlug)
-  ).filter(Boolean) || [];
+  const articleTags = article.tags || [];
 
   const handleShare = (platform: string) => {
     const url = window.location.href;
@@ -112,7 +117,8 @@ export default function Article() {
     }
   };
 
-  const categoryName = article.category.charAt(0).toUpperCase() + article.category.slice(1).replace('-', ' ');
+  const categoryName = article.category?.name || 'Uncategorized';
+  const categorySlug = article.category?.slug || 'uncategorized';
 
   return (
     <Layout>
@@ -141,8 +147,8 @@ export default function Article() {
             <div className="container mx-auto max-w-4xl">
               <div className="flex items-center gap-2 mb-4">
                 <Link
-                  to={`/category/${article.category}`}
-                  className={`px-3 py-1 rounded-full text-xs font-display uppercase tracking-wider ${categoryStyles[article.category] || 'bg-primary/10 text-primary'}`}
+                  to={`/category/${categorySlug}`}
+                  className={`px-3 py-1 rounded-full text-xs font-display uppercase tracking-wider ${categoryStyles[categorySlug] || 'bg-primary/10 text-primary'}`}
                 >
                   {categoryName}
                 </Link>

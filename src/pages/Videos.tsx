@@ -1,10 +1,42 @@
+import { useState, useEffect } from 'react';
 import { Layout } from '@/components/layout/Layout';
-import { videos } from '@/data/mockData';
 import { VideoCard } from '@/components/videos/VideoCard';
+import { apiClient } from '@/lib/api/client';
 
 export default function Videos() {
+  const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadVideos();
+  }, []);
+
+  const loadVideos = async () => {
+    try {
+      setLoading(true);
+      const data = await apiClient.get('/videos');
+      setVideos(data.videos || []);
+    } catch (error) {
+      console.error('Failed to load videos:', error);
+      setVideos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const featuredVideo = videos[0];
   const otherVideos = videos.slice(1);
+
+  if (loading) {
+    return (
+      <Layout>
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="mt-4 text-muted-foreground">Loading videos...</p>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

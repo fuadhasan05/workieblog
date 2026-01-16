@@ -5,7 +5,8 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { getTagBySlug, getArticlesByTag, tags as allTags, Article } from '@/data/mockData';
+import { Article } from '@/data/mockData';
+import { apiClient } from '@/lib/api/client';
 
 export default function TagPage() {
   const { slug } = useParams();
@@ -14,22 +15,30 @@ export default function TagPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      if (slug) {
-        const foundTag = getTagBySlug(slug);
-        setTag(foundTag || null);
-        
-        if (foundTag) {
-          const tagPosts = getArticlesByTag(slug);
-          setPosts(tagPosts);
-        }
-      }
-      setLoading(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
+    loadTagData();
   }, [slug]);
+
+  const loadTagData = async () => {
+    try {
+      setLoading(true);
+      if (!slug) return;
+
+      const [tagsData, postsData] = await Promise.all([
+        apiClient.get('/tags'),
+        apiClient.get(`/posts?tags=${slug}&status=PUBLISHED`)
+      ]);
+
+      const foundTag = tagsData.tags?.find((t: any) => t.slug === slug);
+      setTag(foundTag || null);
+      setPosts(postsData.posts || []);
+    } catch (error) {
+      console.error('Failed to load tag:', error);
+      setTag(null);
+      setPosts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -77,9 +86,7 @@ export default function TagPage() {
             </h1>
           </div>
           <p className="text-muted-foreground text-lg">
-            {posts.length} article{posts.length !== 1 ? 's' : ''} tagged with "{tag.name}"
-          </p>
-        </div>
+            {posts.length} article{posts
 
         {/* Articles Grid */}
         {posts.length > 0 ? (

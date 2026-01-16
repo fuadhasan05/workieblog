@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
-import { getArticlesByCategory, getLatestArticles, Article, Category } from '@/data/mockData';
+import { Article, Category } from '@/data/mockData';
 import { ArticleCard } from '@/components/articles/ArticleCard';
+import { apiClient } from '@/lib/api/client';
 
 const tabs = [
   { id: 'all', label: 'ALL', slug: null },
@@ -15,19 +16,34 @@ const tabs = [
 
 export function CategoryTabs() {
   const [activeTab, setActiveTab] = useState('all');
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const getArticles = (): Article[] => {
-    if (activeTab === 'all') {
-      return getLatestArticles(6);
+  useEffect(() => {
+    loadArticles();
+  }, [activeTab]);
+
+  const loadArticles = async () => {
+    try {
+      setIsLoading(true);
+      let url = '/posts?status=PUBLISHED&limit=6';
+      
+      if (activeTab !== 'all') {
+        const tab = tabs.find(t => t.id === activeTab);
+        if (tab?.slug) {
+          url += `&category=${tab.slug}`;
+        }
+      }
+
+      const data = await apiClient.get(url);
+      setArticles(data.posts || []);
+    } catch (error) {
+      console.error('Failed to load articles:', error);
+      setArticles([]);
+    } finally {
+      setIsLoading(false);
     }
-    const tab = tabs.find(t => t.id === activeTab);
-    if (tab?.slug) {
-      return getArticlesByCategory(tab.slug as Category).slice(0, 6);
-    }
-    return getLatestArticles(6);
   };
-
-  const articles = getArticles();
 
   return (
     <section className="py-8">
@@ -54,14 +70,20 @@ export function CategoryTabs() {
       </div>
 
       {/* Article grid - 3 columns like girlboss */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {articles.map((article) => (
-          <ArticleCard key={article.id} article={article} variant="grid" />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="text-center py-12">Loading articles...</div>
+      ) : articles.length === 0 ? (
+        <div className="text-center py-12">No articles found</div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {articles.map((article) => (
+            <ArticleCard key={article.id} article={article} variant="grid" />
+          ))}
+        </div>
+      )}
 
       {/* View more link */}
-      {activeTab !== 'all' && (
+      {activeTab !== 'all' && !isLoading && articles.length > 0 && (
         <div className="mt-8 text-center">
           <Link
             to={`/category/${tabs.find(t => t.id === activeTab)?.slug || ''}`}

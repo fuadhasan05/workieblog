@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Layout } from '@/components/layout/Layout';
 import { ArticleCard } from '@/components/articles/ArticleCard';
 import { Button } from '@/components/ui/button';
-import { categories, searchArticles, Article } from '@/data/mockData';
+import { Article } from '@/data/mockData';
+import { apiClient } from '@/lib/api/client';
 
 interface SearchFilters {
   category: string;
@@ -16,22 +17,52 @@ export default function SearchResults() {
 
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
 
   const [filters, setFilters] = useState<SearchFilters>({
     category: searchParams.get('category') || '',
   });
 
   useEffect(() => {
-    // Simulate loading delay
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
+    searchArticlesData();
   }, [query, filters]);
 
-  const articles = useMemo(() => {
-    return searchArticles(query, filters.category || undefined);
-  }, [query, filters]);
+  const loadCategories = async () => {
+    try {
+      const data = await apiClient.get('/categories');
+      setCategories(data.categories || []);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+    }
+  };
+
+  const searchArticlesData = async () => {
+    try {
+      setLoading(true);
+      let url = '/posts?status=PUBLISHED';
+      
+      if (query) {
+        url += `&search=${encodeURIComponent(query)}`;
+      }
+      
+      if (filters.category) {
+        url += `&category=${filters.category}`;
+      }
+
+      const data = await apiClient.get(url);
+      setArticles(data.posts || []);
+    } catch (error) {
+      console.error('Failed to search articles:', error);
+      setArticles([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleFilterChange = (key: keyof SearchFilters, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
