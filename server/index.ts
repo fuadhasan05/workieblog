@@ -140,21 +140,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   });
 });
 
-// Initialize MongoDB connection (only for non-serverless)
-if (process.env.VERCEL !== '1') {
-  connectToMongoDB().catch((error) => {
-    console.error('MongoDB connection error:', error);
-  });
-}
+// Initialize MongoDB connection
+connectToMongoDB().catch((error) => {
+  console.error('MongoDB connection error:', error);
+});
 
-// Start server only if not in serverless environment (Vercel)
-if (process.env.VERCEL !== '1') {
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
-    console.log(`✅ MongoDB connected successfully`);
-  });
-}
-
-// Export for Vercel serverless
-export default app;
+// Start server on Render or locally
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
+  console.log(`✅ Environment: ${process.env.NODE_ENV || 'development'}`);
+});

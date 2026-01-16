@@ -1,10 +1,9 @@
-// Backend configuration - can use localhost or remote backend
-// Set VITE_USE_LOCAL_API=true in .env to use localhost, otherwise uses Render
+// Backend configuration - Render for all environments
 const API_BASE_URL = import.meta.env.DEV 
   ? (import.meta.env.VITE_USE_LOCAL_API === 'true' 
       ? 'http://localhost:3001/api'  // Local backend
-      : 'https://workieblog-api.onrender.com/api')  // Remote backend
-  : '/api';  // Production uses Vercel serverless
+      : 'https://workieblog-api.onrender.com/api')  // Remote Render backend
+  : 'https://workieblog-api.onrender.com/api';  // Production uses Render backend
 
 export const apiClient = {
   get: async (endpoint: string) => {
