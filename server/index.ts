@@ -125,12 +125,14 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 // Initialize MongoDB connection
 connectToMongoDB().catch(console.error);
 
-// Start server (binds to 0.0.0.0 for cloud deployments like Render)
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
-  console.log(`✅ MongoDB connected successfully`);
-});
+// Start server only if not in serverless environment (Vercel)
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`📁 Uploads directory: ${path.join(__dirname, '../uploads')}`);
+    console.log(`✅ MongoDB connected successfully`);
+  });
+}
 
 // Export for Vercel serverless
 export default app;
