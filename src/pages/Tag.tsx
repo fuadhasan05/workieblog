@@ -94,9 +94,7 @@ export default function TagPage() {
         {posts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => {
-              const postTags = post.tags?.map(tagSlug => 
-                allTags.find(t => t.slug === tagSlug)
-              ).filter(Boolean) || [];
+              const postTags = post.tags || [];
 
               return (
                 <Link
@@ -116,7 +114,7 @@ export default function TagPage() {
                     )}
                     <div className="p-4">
                       <span className="text-xs font-display uppercase tracking-wider text-primary">
-                        {post.category.charAt(0).toUpperCase() + post.category.slice(1).replace('-', ' ')}
+                        {post.category?.name || 'Uncategorized'}
                       </span>
                       <h3 className="font-display text-lg font-bold mt-1 mb-2 group-hover:text-primary transition-colors line-clamp-2">
                         {post.title}
@@ -125,21 +123,21 @@ export default function TagPage() {
                         {post.excerpt}
                       </p>
                       <div className="flex flex-wrap gap-1 mt-3">
-                        {postTags.slice(0, 3).map((t) => t && (
+                        {postTags.slice(0, 3).map((t: any) => t && (
                           <Badge key={t.id} variant="secondary" className="text-xs">
                             #{t.name}
                           </Badge>
                         ))}
                       </div>
                       <div className="flex items-center gap-2 mt-3 text-xs text-muted-foreground">
-                        <span>{post.author.name}</span>
+                        <span>{post.author?.name || 'Unknown'}</span>
                         <span>•</span>
                         <span>
-                          {new Date(post.publishedAt).toLocaleDateString('en-US', {
+                          {post.publishedAt ? new Date(post.publishedAt).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             year: 'numeric'
-                          })}
+                          }) : '-'}
                         </span>
                       </div>
                     </div>
