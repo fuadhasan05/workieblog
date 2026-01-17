@@ -98,7 +98,6 @@ export default function Category() {
     );
   }
 
-  const articles = getArticlesByCategory(category.slug as CategoryType);
   const headerImage = categoryImages[category.slug as CategoryType];
   const gradient = categoryGradients[category.slug as CategoryType] || 'from-primary/10 to-primary/5';
 
