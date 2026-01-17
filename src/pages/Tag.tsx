@@ -86,7 +86,9 @@ export default function TagPage() {
             </h1>
           </div>
           <p className="text-muted-foreground text-lg">
-            {posts.length} article{posts
+            {posts.length} article{posts.length !== 1 ? 's' : ''} tagged with "{tag.name}"
+          </p>
+        </div>
 
         {/* Articles Grid */}
         {posts.length > 0 ? (
