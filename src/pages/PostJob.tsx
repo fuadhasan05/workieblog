@@ -84,15 +84,15 @@ export default function PostJob() {
     setIsSubmitting(true);
 
     try {
-      // Submit job with INACTIVE status for review
+      // Submit job with ACTIVE status for immediate display
       await apiClient.post('/jobs/submit', {
         ...formData,
         tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean),
-        status: 'INACTIVE', // Jobs start as inactive for admin review
+        status: 'ACTIVE', // Jobs are immediately active
       });
 
       setIsSubmitted(true);
-      toast.success('Job submitted successfully!');
+      toast.success('Job posted successfully!');
     } catch (error: any) {
       toast.error(error.message || 'Failed to submit job. Please try again.');
     } finally {
@@ -110,10 +110,10 @@ export default function PostJob() {
               <CheckCircle className="w-10 h-10 text-primary" />
             </div>
             <h1 className="font-display text-3xl md:text-4xl font-bold text-foreground mb-4">
-              Job Submitted Successfully!
+              Job Posted Successfully!
             </h1>
             <p className="text-muted-foreground text-lg mb-8">
-              Thank you for posting with us. Our team will review your listing and it will be live within 24-48 hours.
+              Your job listing is now live on the job board! Candidates can start applying immediately.
               You'll receive a confirmation email at <strong>{formData.contactEmail}</strong>.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
