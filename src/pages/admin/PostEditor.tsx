@@ -23,7 +23,7 @@ import {
 import { RichTextEditor } from '@/components/admin/RichTextEditor';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
-import { ArrowLeft, Save, Eye, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Plus, Upload, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function PostEditor() {
@@ -51,6 +51,7 @@ export default function PostEditor() {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   
   // New category dialog state
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
@@ -186,7 +187,68 @@ export default function PostEditor() {
       .replace(/-+/g, '-')
       .trim();
   };
+const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image size should be less than 10MB');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      
+      // Upload through backend API (signed upload)
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const token = localStorage.getItem('token');
+      const API_BASE_URL = import.meta.env.DEV 
+        ? (import.meta.env.VITE_USE_LOCAL_API === 'true' 
+            ? 'http://localhost:3001/api'
+            : 'https://workieblog-api.onrender.com/api')
+        : 'https://workieblog-api.onrender.com/api';
+      
+      console.log('Uploading to:', `${API_BASE_URL}/cloudinary/upload`);
+      
+      const response = await fetch(`${API_BASE_URL}/cloudinary/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: formData,
+      });
+      
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Upload error response:', errorData);
+        const errorMessage = errorData?.error || errorData?.details || `Upload failed with status: ${response.status}`;
+        throw new Error(errorMessage);
+      }
+      
+      const data = await response.json();
+      console.log('Upload success:', data);
+      setFormData(prev => ({ ...prev, featuredImage: data.url }));
+      toast.success('Image uploaded successfully');
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      toast.error(error.message || 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  
   if (isLoading) {
     return <div>Loading...</div>;
   }
@@ -421,12 +483,73 @@ export default function PostEditor() {
                 id="readTime"
                 type="number"
                 value={formData.readTime}
-                onChange={(e) => setFormData({ ...formData, readTime: parseInt(e.target.value) })}
+                onChange={(e) => setFormData({ ...formData, readTime: parseInt(e.target.value) || 5 })}
+                min={1}
               />
             </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="featured">Featured Post</Label>
+            <div className="space-y-2">
+              <Label>Featured Image</Label>
+            
+              {/* Upload Button */}
+              <input
+                type="file"
+                id="image-upload"
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => document.getElementById('image-upload')?.click()}
+                disabled={isUploading}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {isUploading ? 'Uploading...' : 'Upload Image'}
+              </Button>
+            </div>
+
+            {/* Or Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Or paste URL</span>
+              </div>
+            </div>
+
+            {/* URL Input */}
+            <Input
+              id="featuredImage"
+              value={formData.featuredImage}
+              onChange={(e) => setFormData({ ...formData, featuredImage: e.target.value })}
+              placeholder="https://example.com/image.jpg"
+            />
+
+            {/* Image Preview */}
+            {formData.featuredImage && (
+              <div className="relative">
+                <img
+                  src={formData.featuredImage}
+                  alt="Featured"
+                  className="w-full rounded-lg"
+                />
+                <Button
+                  type="button"
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => setFormData({ ...formData, featuredImage: '' })}
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2">
               <Switch
                 id="featured"
                 checked={formData.isFeatured}

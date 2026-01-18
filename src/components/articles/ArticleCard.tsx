@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Clock, Crown } from 'lucide-react';
 import { Article as MockArticle } from '@/data/mockData';
 import { formatDistanceToNow } from 'date-fns';
+import { getImageUrl } from '@/lib/utils/image';
 
 // Support both mock data format (category as string) and API format (category as object)
 interface APIArticle {
@@ -61,7 +62,7 @@ export function ArticleCard({ article, variant = 'default' }: ArticleCardProps) 
       >
         <div className="aspect-[16/9] md:aspect-[21/9] overflow-hidden">
           <img
-            src={article.featuredImage}
+            src={getImageUrl(article.featuredImage)}
             alt={article.title}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
           />
@@ -103,7 +104,7 @@ export function ArticleCard({ article, variant = 'default' }: ArticleCardProps) 
       >
         <div className="aspect-[4/3] overflow-hidden rounded-lg mb-3">
           <img
-            src={article.featuredImage}
+            src={getImageUrl(article.featuredImage)}
             alt={article.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
@@ -133,7 +134,7 @@ export function ArticleCard({ article, variant = 'default' }: ArticleCardProps) 
       >
         <div className="w-24 h-24 flex-shrink-0 overflow-hidden rounded-md">
           <img
-            src={article.featuredImage}
+            src={getImageUrl(article.featuredImage)}
             alt={article.title}
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
           />
@@ -158,7 +159,7 @@ export function ArticleCard({ article, variant = 'default' }: ArticleCardProps) 
     >
       <div className="aspect-[16/10] overflow-hidden">
         <img
-          src={article.featuredImage}
+          src={getImageUrl(article.featuredImage)}
           alt={article.title}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
         />

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import { getImageUrl } from '@/lib/utils/image';
 import { Skeleton } from './skeleton';
 
 interface ImageWithLoaderProps extends React.ImgHTMLAttributes<HTMLImageElement> {
@@ -20,6 +21,9 @@ export function ImageWithLoader({
   const [isInView, setIsInView] = useState(false);
   const [hasError, setHasError] = useState(false);
   const imgRef = useRef<HTMLDivElement>(null);
+
+  // Convert relative URLs to absolute URLs
+  const imageUrl = getImageUrl(src);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -48,7 +52,7 @@ export function ImageWithLoader({
         <div className="absolute inset-0 bg-muted flex items-center justify-center">
           <span className="text-muted-foreground text-sm">Failed to load</span>
         </div>
-      )}
+      )}imageUrl
       {isInView && (
         <img
           src={src}

@@ -10,7 +10,24 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { MapPin, Building2, Clock, Briefcase, Search } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import pageJobs from '@/assets/page-jobs.png';
-import { mockJobs, getFilteredJobs, Job } from '@/data/mockJobsData';
+import { apiClient } from '@/lib/api/client';
+
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  salary?: string;
+  jobType: 'FULL_TIME' | 'PART_TIME' | 'CONTRACT' | 'FREELANCE' | 'INTERNSHIP';
+  remote: boolean;
+  description: string;
+  requirements?: string;
+  applicationUrl: string;
+  tags: string[];
+  status: 'ACTIVE' | 'INACTIVE' | 'EXPIRED';
+  createdAt: string;
+  expiresAt?: string;
+}
 
 const jobTypeLabels: Record<string, string> = {
   FULL_TIME: 'Full-time',
@@ -21,22 +38,49 @@ const jobTypeLabels: Record<string, string> = {
 };
 
 export default function Jobs() {
-  const [jobs] = useState<Job[]>(mockJobs);
+  const [jobs, setJobs] = useState<Job[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [remoteOnly, setRemoteOnly] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
 
   useEffect(() => {
-    // Simulate loading delay for demo
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    loadJobs();
   }, []);
 
+  const loadJobs = async () => {
+    try {
+      setIsLoading(true);
+      const data = await apiClient.get('/jobs?status=ACTIVE&limit=100');
+      setJobs(data.jobs || []);
+    } catch (error) {
+      console.error('Failed to load jobs:', error);
+      setJobs([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const filteredBySearch = useMemo(() => {
-    return getFilteredJobs(jobs, search, remoteOnly);
+    let filtered = jobs;
+
+    // Filter by search term
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(job =>
+        job.title.toLowerCase().includes(searchLower) ||
+        job.company.toLowerCase().includes(searchLower) ||
+        job.location.toLowerCase().includes(searchLower) ||
+        job.tags.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Filter by remote
+    if (remoteOnly) {
+      filtered = filtered.filter(job => job.remote);
+    }
+
+    return filtered;
   }, [jobs, search, remoteOnly]);
 
   const allTags = [...new Set(filteredBySearch.flatMap(job => job.tags))];

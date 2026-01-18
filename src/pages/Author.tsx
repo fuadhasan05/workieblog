@@ -5,6 +5,7 @@ import { Layout } from '@/components/layout/Layout';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { apiClient } from '@/lib/api/client';
+import { getImageUrl } from '@/lib/utils/image';
 
 interface Author {
   id: string;
@@ -108,7 +109,7 @@ export default function Author() {
         <div className="flex flex-col items-center mb-12 text-center">
           {author.avatar ? (
             <img
-              src={author.avatar}
+              src={getImageUrl(author.avatar)}
               alt={author.name}
               className="w-24 h-24 rounded-full object-cover mb-4 border-4 border-primary"
             />

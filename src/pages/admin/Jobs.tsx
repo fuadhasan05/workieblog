@@ -174,6 +174,21 @@ export default function AdminJobs() {
     }
   };
 
+  const handleToggleStatus = async (job: Job) => {
+    const newStatus = job.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    
+    try {
+      await apiClient.put(`/jobs/${job.id}`, {
+        ...job,
+        status: newStatus,
+      });
+      toast.success(`Job ${newStatus === 'ACTIVE' ? 'activated' : 'deactivated'} successfully`);
+      loadJobs();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update job status');
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const variants: Record<string, 'default' | 'secondary' | 'destructive'> = {
       ACTIVE: 'default',
@@ -415,6 +430,14 @@ export default function AdminJobs() {
                 <TableCell>{format(new Date(job.createdAt), 'MMM d, yyyy')}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
+                    <Button 
+                      variant={job.status === 'ACTIVE' ? 'outline' : 'default'} 
+                      size="sm"
+                      onClick={() => handleToggleStatus(job)}
+                      className={job.status === 'INACTIVE' ? 'bg-green-600 hover:bg-green-700 text-white' : ''}
+                    >
+                      {job.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                    </Button>
                     <a href={job.applicationUrl} target="_blank" rel="noopener noreferrer">
                       <Button variant="ghost" size="sm">
                         <ExternalLink className="w-4 h-4" />

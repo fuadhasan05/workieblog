@@ -136,7 +136,7 @@ export default function Article() {
         {/* Hero Image */}
         <div className="relative h-[50vh] md:h-[60vh] overflow-hidden">
           <img
-            src={article.featuredImage}
+            src={getImageUrl(article.featuredImage)}
             alt={article.title}
             className="w-full h-full object-cover"
           />

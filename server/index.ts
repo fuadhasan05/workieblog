@@ -24,6 +24,7 @@ import ogImageRoutes from './routes/og-image.js';
 import jobRoutes from './routes/jobs.js';
 import resourceRoutes from './routes/resources.js';
 import firebaseMongoRoutes from './routes/firebase-mongo.js';
+import cloudinaryRoutes from './routes/cloudinary.js';
 
 // MongoDB connection
 import { connectToMongoDB } from './utils/mongodb.js';
@@ -100,6 +101,7 @@ app.use('/api/webhooks', webhookRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
 app.use('/api/media', mediaRoutes);
+app.use('/api/cloudinary', cloudinaryRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/subscribers', subscriberRoutes);
 app.use('/api/analytics', analyticsRoutes);
