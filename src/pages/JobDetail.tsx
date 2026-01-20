@@ -128,7 +128,7 @@ const JobDetail = () => {
         <Card className="mb-6">
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-4">Job Description</h2>
-            <div className="prose prose-neutral dark:prose-invert max-w-none">
+            <div className="prose prose-neutral max-w-none">
               <p className="text-muted-foreground whitespace-pre-wrap">{job.description}</p>
             </div>
           </CardContent>
@@ -139,7 +139,7 @@ const JobDetail = () => {
           <Card className="mb-8">
             <CardContent className="pt-6">
               <h2 className="text-xl font-semibold text-foreground mb-4">Requirements</h2>
-              <div className="prose prose-neutral dark:prose-invert max-w-none">
+              <div className="prose prose-neutral max-w-none">
                 <p className="text-muted-foreground whitespace-pre-wrap">{job.requirements}</p>
               </div>
             </CardContent>

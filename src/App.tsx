@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { AuthProvider } from "./contexts/AuthContext";
 import { MemberProvider } from "./contexts/MemberContext";
 import { ProtectedRoute } from "./components/admin/ProtectedRoute";
@@ -60,14 +59,13 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <HelmetProvider>
-    <ThemeProvider defaultTheme="system" storageKey="workherholic-theme">
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <MemberProvider>
-              <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <MemberProvider>
+            <AuthProvider>
               <Routes>
                 {/* Public routes */}
                 <Route path="/" element={<Index />} />
@@ -134,7 +132,6 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
-    </ThemeProvider>
   </HelmetProvider>
 );
 

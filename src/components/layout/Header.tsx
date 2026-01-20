@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,7 +68,7 @@ export function Header() {
               <img 
                 src={logo} 
                 alt="Workie" 
-                className="h-6 md:h-8 w-auto object-contain dark:brightness-0 dark:invert" 
+                className="h-6 md:h-8 w-auto object-contain" 
               />
             </Link>
 
@@ -158,7 +157,6 @@ export function Header() {
                   <Search className="h-4 w-4" />
                 </Button>
               </form>
-              <ThemeToggle />
               <Link to="/pricing">
                 <Button variant="link" className="text-sm font-medium underline">
                   SUBSCRIBE
