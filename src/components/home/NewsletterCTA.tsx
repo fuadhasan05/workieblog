@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Mail, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/api/client';
 
 export function NewsletterCTA() {
   const [email, setEmail] = useState('');
@@ -32,36 +33,20 @@ export function NewsletterCTA() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('/api/subscribers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email,
-          source: 'newsletter_cta',
-          subscribedAt: new Date().toISOString()
-        }),
+      await apiClient.post('/subscribers', { 
+        email,
+        source: 'newsletter_cta'
       });
 
-      if (response.ok) {
-        toast({
-          title: "You're in! 🎉",
-          description: "Welcome to the Workie community! Check your inbox for confirmation.",
-        });
-        setEmail('');
-      } else {
-        const error = await response.json();
-        toast({
-          title: "Subscription failed",
-          description: error.message || "Please try again later",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
       toast({
-        title: "Network error",
-        description: "Please check your connection and try again",
+        title: "You're in! 🎉",
+        description: "Welcome to the Workie community! Check your inbox for confirmation.",
+      });
+      setEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Subscription failed",
+        description: error.message || "Please try again later",
         variant: "destructive",
       });
     } finally {

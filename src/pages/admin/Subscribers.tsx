@@ -24,8 +24,10 @@ import { format } from 'date-fns';
 
 // Get API base URL from environment
 const API_BASE_URL = import.meta.env.DEV 
-  ? 'https://workieblog-api.onrender.com'
-  : '/api';
+  ? (import.meta.env.VITE_USE_LOCAL_API === 'true' 
+      ? 'http://localhost:3001/api'
+      : 'https://workieblog-api.onrender.com/api')
+  : 'https://workieblog-api.onrender.com/api';
 
 export default function Subscribers() {
   const [subscribers, setSubscribers] = useState<any[]>([]);

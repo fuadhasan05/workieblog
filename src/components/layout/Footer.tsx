@@ -3,6 +3,7 @@ import { Instagram, Twitter, Linkedin, Youtube, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/lib/api/client';
 import logo from '@/assets/logo-workie.png';
 
 export function Footer() {
@@ -34,36 +35,20 @@ export function Footer() {
     setIsSubmitting(true);
     
     try {
-      const response = await fetch('/api/subscribers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          email,
-          source: 'footer_newsletter',
-          subscribed_at: new Date().toISOString()
-        }),
+      await apiClient.post('/subscribers', { 
+        email,
+        source: 'footer_newsletter'
       });
 
-      if (response.ok) {
-        toast({
-          title: "Welcome to Workie! 🎉",
-          description: "You've successfully joined 200K+ African Gen-Z professionals!",
-        });
-        setEmail('');
-      } else {
-        const error = await response.json();
-        toast({
-          title: "Subscription failed",
-          description: error.message || "Please try again later",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
       toast({
-        title: "Network error",
-        description: "Please check your connection and try again",
+        title: "Welcome to Workie! 🎉",
+        description: "You've successfully joined 200K+ African Gen-Z professionals!",
+      });
+      setEmail('');
+    } catch (error: any) {
+      toast({
+        title: "Subscription failed",
+        description: error.message || "Please try again later",
         variant: "destructive",
       });
     } finally {

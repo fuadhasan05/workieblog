@@ -19,11 +19,8 @@ export const uploadMedia = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    // Construct the full URL for the uploaded file
-    const protocol = req.protocol;
-    const host = req.get('host');
-    const baseUrl = `${protocol}://${host}`;
-    const fileUrl = `${baseUrl}/uploads/${req.file.filename}`;
+    // Store relative path instead of full URL
+    const fileUrl = `/uploads/${req.file.filename}`;
 
     const media = await Media.create({
       filename: req.file.filename,

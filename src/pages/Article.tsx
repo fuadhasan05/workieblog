@@ -10,6 +10,7 @@ import { SEO } from '@/components/SEO';
 import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { Article as ArticleType } from '@/data/mockData';
+import { getImageUrl } from '@/lib/utils/image';
 
 const categoryStyles: Record<string, string> = {
   career: 'bg-purple-100 text-purple-800',
