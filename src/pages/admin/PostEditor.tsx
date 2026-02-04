@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { RichTextEditor } from '@/components/admin/RichTextEditor';
+import { SmartRichTextEditor } from '@/components/admin/SmartRichTextEditor';
 import { apiClient } from '@/lib/api/client';
 import { toast } from 'sonner';
 import { ArrowLeft, Save, Eye, Plus, Upload, X } from 'lucide-react';
@@ -328,7 +328,7 @@ const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
 
           <div>
             <Label>Content *</Label>
-            <RichTextEditor
+            <SmartRichTextEditor
               content={formData.content}
               onChange={(content) => setFormData({ ...formData, content })}
               placeholder="Start writing your post..."

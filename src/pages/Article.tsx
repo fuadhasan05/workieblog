@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { apiClient } from '@/lib/api/client';
 import { Article as ArticleType } from '@/data/mockData';
 import { getImageUrl } from '@/lib/utils/image';
+import { formatArticleContent, sanitizeContent } from '@/lib/utils/formatContent';
 
 const categoryStyles: Record<string, string> = {
   career: 'bg-purple-100 text-purple-800',
@@ -235,11 +236,12 @@ export default function Article() {
               className="prose prose-lg max-w-none
                 prose-headings:font-display prose-headings:font-bold
                 prose-h2:text-2xl prose-h2:mt-8 prose-h2:mb-4
-                prose-p:text-foreground/90 prose-p:leading-relaxed
+                prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:my-4
+                prose-br:block prose-br:my-2
                 prose-a:text-primary prose-a:no-underline hover:prose-a:underline
                 prose-blockquote:border-l-primary prose-blockquote:italic
                 prose-strong:text-foreground"
-              dangerouslySetInnerHTML={{ __html: contentPreview }}
+              dangerouslySetInnerHTML={{ __html: sanitizeContent(formatArticleContent(contentPreview)) }}
             />
 
             {/* Tags */}

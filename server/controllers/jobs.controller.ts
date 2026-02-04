@@ -19,49 +19,51 @@ export const getJobs = async (req: Request, res: Response) => {
     const limitNum = parseInt(limit as string);
     const skip = (pageNum - 1) * limitNum;
 
-    const filter: any = {};
+    const filter: any = { $and: [] };
 
     // For public API, only show active jobs
     if (status === 'ACTIVE') {
-      filter.status = 'ACTIVE';
-      filter.$or = [
-        { expiresAt: null },
-        { expiresAt: { $gte: new Date() } }
-      ];
+      filter.$and.push({ status: 'ACTIVE' });
+      filter.$and.push({
+        $or: [
+          { expiresAt: null },
+          { expiresAt: { $gte: new Date() } }
+        ]
+      });
     } else if (status !== 'all') {
-      filter.status = status;
+      filter.$and.push({ status: status });
     }
 
     if (search) {
       const searchRegex = new RegExp(search as string, 'i');
-      filter.$and = [
-        ...(filter.$and || []),
-        {
-          $or: [
-            { title: searchRegex },
-            { company: searchRegex },
-            { location: searchRegex },
-            { tags: { $in: [(search as string).toLowerCase()] } }
-          ]
-        }
-      ];
+      filter.$and.push({
+        $or: [
+          { title: searchRegex },
+          { company: searchRegex },
+          { location: searchRegex },
+          { tags: { $in: [(search as string).toLowerCase()] } }
+        ]
+      });
     }
 
     if (jobType && jobType !== 'all') {
-      filter.jobType = jobType;
+      filter.$and.push({ jobType: jobType });
     }
 
     if (remote === 'true') {
-      filter.remote = true;
+      filter.$and.push({ remote: true });
     }
 
+    // Clean up empty $and array
+    const finalFilter = filter.$and.length > 0 ? filter : {};
+
     const [jobs, total] = await Promise.all([
-      Job.find(filter)
+      Job.find(finalFilter)
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limitNum)
         .lean(),
-      Job.countDocuments(filter)
+      Job.countDocuments(finalFilter)
     ]);
 
     // Transform jobs to include id field
@@ -148,6 +150,9 @@ export const createJob = async (req: AuthRequest, res: Response) => {
       status: status || 'ACTIVE',
       expiresAt: expiresAt ? new Date(expiresAt) : undefined
     });
+
+    // Log the created job for debugging
+    console.log('Job created:', job);
 
     res.status(201).json({ 
       job: {
